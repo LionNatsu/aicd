@@ -2,7 +2,7 @@
  * Type bridge between AICD domain types and Vue Flow's Node/Edge model.
  *
  * Mapping:
- * - ProductionNode.type ('source'|'facility'|'sink') → VF Node.type
+ * - ProductionNode.type ('supply'|'facility'|'sink') → VF Node.type
  * - ProductionNode.position → VF Node.position
  * - Port.index → VF Handle.id  (`in-0`, `in-1`, `out-0`, `out-1`, …)
  * - FlowEdge.sourceId/sourcePort → VF Edge.source/sourceHandle
@@ -14,19 +14,20 @@ import type { Node, Edge } from '@vue-flow/core'
 import type {
   TransportType,
   ProductionNode,
-  SourceNode,
+  SupplyNode,
   FacilityNode,
   SinkNode,
   FlowEdge as DomainEdge,
 } from '@/types'
+import { TRANSPORT_RATES } from '@/types'
+
 // ---------------------------------------------------------------------------
 // Node data payloads
 // ---------------------------------------------------------------------------
 
-export interface SourceNodeData {
-  nodeType: 'source'
+export interface SupplyNodeData {
+  nodeType: 'supply'
   itemId: string
-  rate: number
 }
 
 export interface FacilityNodeData {
@@ -42,7 +43,7 @@ export interface SinkNodeData {
   rate: number
 }
 
-export type AicdNodeData = SourceNodeData | FacilityNodeData | SinkNodeData
+export type AicdNodeData = SupplyNodeData | FacilityNodeData | SinkNodeData
 
 // ---------------------------------------------------------------------------
 // Edge data payload
@@ -50,7 +51,9 @@ export type AicdNodeData = SourceNodeData | FacilityNodeData | SinkNodeData
 
 export interface FlowEdgeData {
   itemId: string
+  /** Derived rate: parallelCount × TRANSPORT_RATES[transportType] */
   rate: number
+  parallelCount: number
   transportType: TransportType
 }
 
@@ -81,8 +84,8 @@ export function parseHandleId(id: string): { direction: 'in' | 'out'; portIndex:
 // Conversion: Domain → Vue Flow
 // ---------------------------------------------------------------------------
 
-function toSourceData(node: SourceNode): SourceNodeData {
-  return { nodeType: 'source', itemId: node.itemId, rate: node.rate }
+function toSupplyData(node: SupplyNode): SupplyNodeData {
+  return { nodeType: 'supply', itemId: node.itemId }
 }
 
 function toFacilityData(node: FacilityNode): FacilityNodeData {
@@ -101,8 +104,8 @@ function toSinkData(node: SinkNode): SinkNodeData {
 export function toVFNode(node: ProductionNode): AicdNode {
   let data: AicdNodeData
   switch (node.type) {
-    case 'source':
-      data = toSourceData(node)
+    case 'supply':
+      data = toSupplyData(node)
       break
     case 'facility':
       data = toFacilityData(node)
@@ -121,6 +124,7 @@ export function toVFNode(node: ProductionNode): AicdNode {
 }
 
 export function toVFEdge(edge: DomainEdge): AicdEdge {
+  const rate = edge.parallelCount * TRANSPORT_RATES[edge.transportType]
   return {
     id: edge.id,
     source: edge.sourceId,
@@ -130,13 +134,10 @@ export function toVFEdge(edge: DomainEdge): AicdEdge {
     type: 'flow',
     data: {
       itemId: edge.itemId,
-      rate: edge.rate,
+      rate,
+      parallelCount: edge.parallelCount,
       transportType: edge.transportType,
     },
-    animated: edge.transportType === 'pipe',
+    animated: edge.transportType === 'pipe' || edge.transportType === 'conduit',
   }
 }
-
-// ---------------------------------------------------------------------------
-// Conversion: Domain → Vue Flow
-// ---------------------------------------------------------------------------

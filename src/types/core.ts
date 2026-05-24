@@ -13,7 +13,17 @@
  * Logistics transport type. Extensible for future game updates
  * (e.g. gas pipelines).
  */
-export type TransportType = 'belt' | 'pipe'
+export type TransportType = 'belt' | 'pipe' | 'conduit'
+
+/**
+ * Fixed transport rates per line (items/second).
+ * These are hard simulation constants from the game.
+ */
+export const TRANSPORT_RATES: Record<TransportType, number> = {
+  belt: 0.5,
+  pipe: 2.0,
+  conduit: 1.5,
+} as const
 
 // ---------------------------------------------------------------------------
 // Item

@@ -1,17 +1,21 @@
 /**
- * Graph editor types for the AIC production line visual editor.
+ * Graph editor types for the AICD production line visual editor.
  *
  * The production line is modelled as a directed graph where:
- * - Source nodes supply items (any item: raw, intermediate, or finished)
+ * - Supply nodes pull items from the Depot onto transport lines
  * - Facility nodes process inputs into outputs via recipes
- * - Sink nodes consume items (any item: raw, intermediate, or finished)
- * - Edges represent material flows between ports
+ * - Sink nodes represent demand targets (the production goal)
+ * - Edges represent material flows on belts/pipes between ports
  *
- * Source and Sink are *node roles* in the graph, not item categories.
- * Any item can appear as a Source (producing) or Sink (consuming).
- * For example, an intermediate product can be a Source (produced by one
- * facility) and also a Sink (consumed by another facility) in the same
- * production line.
+ * The primary workflow is **reverse derivation**: specify the Sink
+ * demand, build the Facility chain, then read diagnostics to see
+ * how many Supply ports and parallel transport lines are needed.
+ *
+ * Key concepts (see ARCHITECTURE.md for full rationale):
+ * - Supply unifies PAC output ports, Depot Output (仓库取货口),
+ *   and Protocol Stash (协议储存箱) — they all pull from Depot
+ * - Miners do NOT appear as graph nodes (miner→Depot is wireless)
+ * - Edge rates are derived from parallel count × fixed transport rate
  *
  * Cycles are natively supported (e.g. perpetual seed-plant loops,
  * byproduct recycling).
@@ -28,12 +32,17 @@ interface BaseNode {
   position: { x: number; y: number }
 }
 
-/** Item source node — produces an item at a given rate. Any item can be a source. */
-export interface SourceNode extends BaseNode {
-  type: 'source'
+/**
+ * A Depot-to-transport-line output point.
+ *
+ * Unifies PAC output ports, Depot Output (仓库取货口), and Protocol Stash
+ * (协议储存箱). The user picks which item to pull from the Depot; the
+ * output rate is derived from downstream demand, and the required port
+ * count is a diagnostic result.
+ */
+export interface SupplyNode extends BaseNode {
+  type: 'supply'
   itemId: string
-  /** Output rate in items / second. */
-  rate: number
 }
 
 /** A processing facility running a specific recipe. */
@@ -45,21 +54,31 @@ export interface FacilityNode extends BaseNode {
   count: number
 }
 
-/** Item sink node — consumes an item at a given rate. Any item can be a sink. */
+/**
+ * A demand target — the production goal that the line must satisfy.
+ * The rate drives the reverse derivation: "I need X/s of this item".
+ */
 export interface SinkNode extends BaseNode {
   type: 'sink'
   itemId: string
-  /** Expected consumption rate in items / second. */
+  /** Target consumption rate in items / second (user-specified goal). */
   rate: number
 }
 
-export type ProductionNode = SourceNode | FacilityNode | SinkNode
+export type ProductionNode = SupplyNode | FacilityNode | SinkNode
 
 // ---------------------------------------------------------------------------
 // Edges
 // ---------------------------------------------------------------------------
 
-/** A material flow connection between two node ports. */
+/**
+ * A material flow on a transport line between two node ports.
+ *
+ * The rate is derived: `parallelCount × TRANSPORT_RATES[transportType]`.
+ * For Facility→Facility edges, the rate is determined by the source
+ * facility's recipe output rate. For Supply→Facility edges, it is
+ * determined by the target facility's recipe input demand.
+ */
 export interface FlowEdge {
   id: string
   sourceId: string
@@ -67,8 +86,8 @@ export interface FlowEdge {
   targetId: string
   targetPort: number
   itemId: string
-  /** Flow rate in items / second. */
-  rate: number
+  /** Number of parallel transport lines carrying this flow. */
+  parallelCount: number
   transportType: TransportType
 }
 
@@ -94,7 +113,14 @@ export interface Port {
 export interface Diagnostic {
   nodeId?: string
   level: 'error' | 'warning' | 'info'
-  kind: 'overproduction' | 'underproduction' | 'wrong_item' | 'port_mismatch' | 'cycle_detected'
+  kind:
+    | 'overproduction'
+    | 'underproduction'
+    | 'wrong_item'
+    | 'port_mismatch'
+    | 'port_exceeded'
+    | 'unconnected_output'
+    | 'cycle_detected'
   message: string
   relatedEdges: string[]
 }

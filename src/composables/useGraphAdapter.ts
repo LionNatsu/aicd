@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import type { Connection } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
-import type { AicdNode, AicdEdge, FlowEdgeData, TransportType } from '@/types'
+import type { AicdNode, AicdEdge, TransportType } from '@/types'
 import { toVFNode, toVFEdge, parseHandleId } from '@/types'
 import { getFacility, getRecipe, getItem } from '@/data'
 import { resolvePorts } from '@/utils/port-resolver'
@@ -43,13 +43,13 @@ export function useGraphAdapter(line: ProductionLineState) {
     const srcPortIndex = srcHandle?.portIndex ?? 0
     const tgtPortIndex = tgtHandle?.portIndex ?? 0
 
-    // Auto-infer itemId from source node's output port
+    // Auto-infer itemId and transportType from source node
     const srcNode = line.nodes.get(connection.source)
     let itemId = ''
     let transportType: TransportType = 'belt'
 
     if (srcNode) {
-      if (srcNode.type === 'source') {
+      if (srcNode.type === 'supply') {
         itemId = srcNode.itemId
         const item = getItem(itemId)
         transportType = item?.transportType ?? 'belt'
@@ -69,18 +69,14 @@ export function useGraphAdapter(line: ProductionLineState) {
       }
     }
 
-    const edgeData: FlowEdgeData = {
-      itemId,
-      rate: 0,
-      transportType,
-    }
-
     pendingConnection.value = {
       sourceId: connection.source,
       sourcePort: srcPortIndex,
       targetId: connection.target,
       targetPort: tgtPortIndex,
-      ...edgeData,
+      itemId,
+      parallelCount: 1,
+      transportType,
     }
   })
 
@@ -91,7 +87,7 @@ export function useGraphAdapter(line: ProductionLineState) {
     targetId: string
     targetPort: number
     itemId: string
-    rate: number
+    parallelCount: number
     transportType: TransportType
   } | null>(null)
 

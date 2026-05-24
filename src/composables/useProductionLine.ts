@@ -1,13 +1,15 @@
 import { reactive, computed } from 'vue'
 import type {
   ProductionNode,
-  SourceNode,
+  SupplyNode,
   FacilityNode,
   SinkNode,
   FlowEdge,
   Diagnostic,
   Port,
+  TransportType,
 } from '@/types'
+import { TRANSPORT_RATES } from '@/types'
 import { getFacility, getRecipe, getItem } from '@/data'
 import { resolvePorts } from '@/utils/port-resolver'
 
@@ -60,9 +62,9 @@ export function useProductionLine(initialId?: string) {
 
   // ---- Node CRUD ----
 
-  function addSource(patch: Omit<SourceNode, 'id' | 'type'>): string {
-    const id = genId('src')
-    const node: SourceNode = { ...patch, id, type: 'source' }
+  function addSupply(patch: Omit<SupplyNode, 'id' | 'type'>): string {
+    const id = genId('sup')
+    const node: SupplyNode = { ...patch, id, type: 'supply' }
     line.nodes.set(id, node)
     runDiagnostics()
     return id
@@ -149,8 +151,8 @@ export function useProductionLine(initialId?: string) {
     }
 
     for (const [nodeId, node] of line.nodes) {
-      if (node.type === 'source') {
-        diagnoseSource(nodeId, node, edgesOut.get(nodeId) ?? [], diagnostics)
+      if (node.type === 'supply') {
+        diagnoseSupply(nodeId, node, edgesOut.get(nodeId) ?? [], diagnostics)
       } else if (node.type === 'facility') {
         diagnoseFacility(
           nodeId,
@@ -170,32 +172,22 @@ export function useProductionLine(initialId?: string) {
     line.diagnostics = diagnostics
   }
 
-  // ---- Source diagnostics ----
+  // ---- Supply diagnostics ----
 
-  function diagnoseSource(
+  function diagnoseSupply(
     nodeId: string,
-    node: SourceNode,
+    node: SupplyNode,
     outEdges: FlowEdge[],
     diagnostics: Diagnostic[],
   ) {
-    const totalOut = outEdges.reduce((s, e) => s + e.rate, 0)
-    if (totalOut > node.rate) {
-      diagnostics.push({
-        nodeId,
-        level: 'warning',
-        kind: 'overproduction',
-        message: `Source output rate (${totalOut.toFixed(2)}) exceeds supply (${node.rate.toFixed(2)})`,
-        relatedEdges: outEdges.map((e) => e.id),
-      })
-    } else if (totalOut < node.rate) {
-      diagnostics.push({
-        nodeId,
-        level: 'info',
-        kind: 'underproduction',
-        message: `Source output rate (${totalOut.toFixed(2)}) below supply (${node.rate.toFixed(2)})`,
-        relatedEdges: outEdges.map((e) => e.id),
-      })
-    }
+    const item = getItem(node.itemId)
+    const transportType: TransportType = item?.transportType ?? 'belt'
+    const perPortRate = TRANSPORT_RATES[transportType]
+    const totalOutRate = outEdges.reduce(
+      (s, e) => s + e.parallelCount * TRANSPORT_RATES[e.transportType],
+      0,
+    )
+    const requiredPorts = totalOutRate > 0 ? Math.ceil(totalOutRate / perPortRate) : 0
 
     // Check item mismatch on outgoing edges
     for (const edge of outEdges) {
@@ -204,10 +196,21 @@ export function useProductionLine(initialId?: string) {
           nodeId,
           level: 'error',
           kind: 'wrong_item',
-          message: `Edge carries ${edge.itemId} but source provides ${node.itemId}`,
+          message: `Edge carries ${edge.itemId} but supply provides ${node.itemId}`,
           relatedEdges: [edge.id],
         })
       }
+    }
+
+    // Report required port count as info
+    if (requiredPorts > 0) {
+      diagnostics.push({
+        nodeId,
+        level: 'info',
+        kind: 'port_exceeded',
+        message: `Requires ${requiredPorts} ${transportType} port(s) to supply ${totalOutRate.toFixed(2)}/s of ${node.itemId} (per-port: ${perPortRate}/s)`,
+        relatedEdges: outEdges.map((e) => e.id),
+      })
     }
   }
 
@@ -242,11 +245,13 @@ export function useProductionLine(initialId?: string) {
     // Actual rates from edges
     const actualIn = new Map<string, number>()
     for (const edge of inEdges) {
-      actualIn.set(edge.itemId, (actualIn.get(edge.itemId) ?? 0) + edge.rate)
+      const rate = edge.parallelCount * TRANSPORT_RATES[edge.transportType]
+      actualIn.set(edge.itemId, (actualIn.get(edge.itemId) ?? 0) + rate)
     }
     const actualOut = new Map<string, number>()
     for (const edge of outEdges) {
-      actualOut.set(edge.itemId, (actualOut.get(edge.itemId) ?? 0) + edge.rate)
+      const rate = edge.parallelCount * TRANSPORT_RATES[edge.transportType]
+      actualOut.set(edge.itemId, (actualOut.get(edge.itemId) ?? 0) + rate)
     }
 
     // Check input rates
@@ -277,8 +282,22 @@ export function useProductionLine(initialId?: string) {
       }
     }
 
-    // Check port mismatches — edges pointing to non-existent ports
+    // Check unconnected output ports (byproducts that will cause jams)
     const ports = resolvePorts(facility, recipe)
+    const connectedOutItems = new Set(outEdges.map((e) => e.itemId))
+    for (const port of ports.outputs) {
+      if (port.itemId && !connectedOutItems.has(port.itemId)) {
+        diagnostics.push({
+          nodeId,
+          level: 'warning',
+          kind: 'unconnected_output',
+          message: `Output port ${port.index} (${port.itemId}) has no outgoing connection — facility will jam`,
+          relatedEdges: [],
+        })
+      }
+    }
+
+    // Check port mismatches — edges pointing to non-existent ports
     const inPortItemSet = new Set(ports.inputs.map((p) => p.itemId).filter(Boolean))
     const outPortItemSet = new Set(ports.outputs.map((p) => p.itemId).filter(Boolean))
 
@@ -329,13 +348,16 @@ export function useProductionLine(initialId?: string) {
     inEdges: FlowEdge[],
     diagnostics: Diagnostic[],
   ) {
-    const totalIn = inEdges.reduce((s, e) => s + e.rate, 0)
+    const totalIn = inEdges.reduce(
+      (s, e) => s + e.parallelCount * TRANSPORT_RATES[e.transportType],
+      0,
+    )
     if (totalIn < node.rate) {
       diagnostics.push({
         nodeId,
         level: 'warning',
         kind: 'underproduction',
-        message: `Sink input rate (${totalIn.toFixed(2)}) below demand (${node.rate.toFixed(2)})`,
+        message: `Sink input rate (${totalIn.toFixed(2)}/s) below demand (${node.rate.toFixed(2)}/s)`,
         relatedEdges: inEdges.map((e) => e.id),
       })
     }
@@ -479,7 +501,7 @@ export function useProductionLine(initialId?: string) {
     resolvedPorts,
 
     // Node CRUD
-    addSource,
+    addSupply,
     addFacility,
     addSink,
     updateNode,

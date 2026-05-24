@@ -21,6 +21,7 @@ const path = computed(() => {
 const edgeColor = computed(() => {
   const type = props.data?.transportType
   if (type === 'pipe') return '#4a9eff'
+  if (type === 'conduit') return '#7b68ee'
   return '#42b883'
 })
 </script>

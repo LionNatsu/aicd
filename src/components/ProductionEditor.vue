@@ -5,7 +5,7 @@ import type { NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 
-import SourceNodeVue from './nodes/SourceNode.vue'
+import SupplyNodeVue from './nodes/SupplyNode.vue'
 import FacilityNodeVue from './nodes/FacilityNode.vue'
 import SinkNodeVue from './nodes/SinkNode.vue'
 import FlowEdgeVue from './edges/FlowEdge.vue'
@@ -15,13 +15,13 @@ import './nodes/node.css'
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
 
-const { line, addSource, addFacility, addSink, addEdge, removeNode, removeEdge } =
+const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge } =
   useProductionLine()
 const { nodes, edges, pendingConnection } = useGraphAdapter(line)
 
 // Register custom node/edge types
 const nodeTypes = {
-  source: markRaw(SourceNodeVue),
+  supply: markRaw(SupplyNodeVue),
   facility: markRaw(FacilityNodeVue),
   sink: markRaw(SinkNodeVue),
 }
@@ -34,8 +34,8 @@ const edgeTypes = {
 
 let nextY = 200
 
-function handleAddSource(itemId: string, position: { x: number; y: number }) {
-  addSource({ itemId, rate: 10, position: { x: position.x, y: nextY } })
+function handleAddSupply(itemId: string, position: { x: number; y: number }) {
+  addSupply({ itemId, position: { x: position.x, y: nextY } })
   nextY += 120
 }
 
@@ -110,7 +110,7 @@ function onKeyDown(event: KeyboardEvent) {
   <div class="production-editor">
     <!-- Sidebar -->
     <SidebarVue
-      :on-add-source="handleAddSource"
+      :on-add-supply="handleAddSupply"
       :on-add-facility="handleAddFacility"
       :on-add-sink="handleAddSink"
     />

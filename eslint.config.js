@@ -10,6 +10,15 @@ export default tseslint.config(
   ...pluginVue.configs['flat/recommended'],
   prettierConfig,
   {
+    languageOptions: {
+      globals: {
+        Event: 'readonly',
+        KeyboardEvent: 'readonly',
+        Element: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.vue'],
     languageOptions: {
       parserOptions: {

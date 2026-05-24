@@ -7,10 +7,10 @@ export type {
   Facility,
   TransportType,
 } from './core'
-export { FacilityCategory } from './core'
+export { FacilityCategory, TRANSPORT_RATES } from './core'
 
 export type {
-  SourceNode,
+  SupplyNode,
   FacilityNode,
   SinkNode,
   ProductionNode,
@@ -20,7 +20,7 @@ export type {
 } from './graph'
 
 export type {
-  SourceNodeData,
+  SupplyNodeData,
   FacilityNodeData,
   SinkNodeData,
   AicdNodeData,

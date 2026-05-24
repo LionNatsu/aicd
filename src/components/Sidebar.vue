@@ -5,20 +5,19 @@ import { items, facilities, getRecipesByFacility } from '@/data'
 import { getItemIconUrl, getFacilityIconUrl } from '@/data'
 
 const props = defineProps<{
-  onAddSource: (itemId: string, position: { x: number; y: number }) => void
+  onAddSupply: (itemId: string, position: { x: number; y: number }) => void
   onAddFacility: (facilityId: string, recipeId: string, position: { x: number; y: number }) => void
   onAddSink: (itemId: string, position: { x: number; y: number }) => void
 }>()
 
 const { t } = useI18n()
 
-type Tab = 'source' | 'facility' | 'sink'
-const activeTab = ref<Tab>('source')
+type Tab = 'supply' | 'facility' | 'sink'
+const activeTab = ref<Tab>('supply')
 const search = ref('')
 
-// All items available as Source or Sink — Source/Sink are node roles, not item categories.
-// asTarget only controls whether the item can be a production line's final target
-// (for auto-balancing), not whether it can appear in the graph.
+// All items — Supply and Sink are node roles, not item categories.
+// Any item can be pulled from the Depot (Supply) or be a demand target (Sink).
 const allItems = computed(() => {
   const q = search.value.toLowerCase()
   return items.filter((i) => {
@@ -45,8 +44,8 @@ const facilityList = computed(() => {
 // Expanded facility (showing recipe list)
 const expandedFacility = ref<string | null>(null)
 
-function selectSource(itemId: string) {
-  props.onAddSource(itemId, { x: 100, y: 300 })
+function selectSupply(itemId: string) {
+  props.onAddSupply(itemId, { x: 100, y: 300 })
 }
 
 function selectRecipe(facilityId: string, recipeId: string) {
@@ -59,7 +58,7 @@ function selectSink(itemId: string) {
 }
 
 const tabs: { key: Tab; label: string }[] = [
-  { key: 'source', label: 'Source' },
+  { key: 'supply', label: 'Supply' },
   { key: 'facility', label: 'Facility' },
   { key: 'sink', label: 'Sink' },
 ]
@@ -82,13 +81,13 @@ const tabs: { key: Tab; label: string }[] = [
     <!-- Search -->
     <input v-model="search" class="search" placeholder="Search..." />
 
-    <!-- Source tab -->
-    <ul v-if="activeTab === 'source'" class="item-list">
+    <!-- Supply tab -->
+    <ul v-if="activeTab === 'supply'" class="item-list">
       <li
         v-for="item in allItems"
         :key="item.id"
         :class="{ intermediate: item.asTarget === false }"
-        @click="selectSource(item.id)"
+        @click="selectSupply(item.id)"
       >
         <img :src="getItemIconUrl(item.id)" class="list-icon" />
         <span class="list-name">{{ t(`item.${item.id}`) }}</span>
