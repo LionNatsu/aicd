@@ -12,7 +12,6 @@ import './nodes/node.css'
 
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
-import type { AicdNode, AicdEdge } from '@/types'
 
 const { line, addSource, addFacility, addSink, addEdge } = useProductionLine()
 const { nodes, edges, pendingConnection } = useGraphAdapter(line)
@@ -78,15 +77,15 @@ function diagLevelClass(level: string): string {
     <!-- Canvas -->
     <main class="canvas-container">
       <VueFlow
-        :nodes="nodes as AicdNode[]"
-        :edges="edges as AicdEdge[]"
+        :nodes="nodes"
+        :edges="edges"
         :node-types="nodeTypes"
         :edge-types="edgeTypes"
         fit-view-on-init
         :default-edge-options="{ type: 'flow' }"
         :connection-line-style="{ stroke: '#42b883' }"
         @connect="
-          (conn: any) => {
+          () => {
             if (pendingConnection) {
               addEdge(pendingConnection)
               pendingConnection = null

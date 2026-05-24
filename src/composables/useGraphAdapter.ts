@@ -15,8 +15,8 @@ import type { ProductionLineState } from './useProductionLine'
 export function useGraphAdapter(line: ProductionLineState) {
   const { onConnect, onNodesChange } = useVueFlow()
 
-  const nodes = ref<AicdNode[]>([]) as { value: AicdNode[] }
-  const edges = ref<AicdEdge[]>([]) as { value: AicdEdge[] }
+  const nodes = ref<AicdNode[]>([])
+  const edges = ref<AicdEdge[]>([])
 
   // ---- Domain → Vue Flow ----
 
