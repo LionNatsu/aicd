@@ -24,10 +24,32 @@ const edgeColor = computed(() => {
   if (type === 'conduit') return '#7b68ee'
   return '#42b883'
 })
+
+// Unique marker ID so each edge gets an arrow matching its color
+const markerId = computed(() => `arrow-${props.id}`)
 </script>
 
 <template>
-  <BaseEdge :path="path" :style="{ stroke: edgeColor, strokeWidth: 2 }" />
+  <svg style="position: absolute; pointer-events: none; overflow: visible">
+    <defs>
+      <marker
+        :id="markerId"
+        viewBox="0 0 10 10"
+        refX="10"
+        refY="5"
+        markerWidth="8"
+        markerHeight="8"
+        orient="auto-start-reverse"
+      >
+        <path d="M 0 0 L 10 5 L 0 10 z" :fill="edgeColor" />
+      </marker>
+    </defs>
+  </svg>
+  <BaseEdge
+    :path="path"
+    :style="{ stroke: edgeColor, strokeWidth: 2 }"
+    :marker-end="`url(#${markerId})`"
+  />
   <EdgeLabelRenderer v-if="props.data?.itemId">
     <div
       :style="{
