@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { markRaw, ref } from 'vue'
-import { VueFlow } from '@vue-flow/core'
+import { VueFlow, useVueFlow } from '@vue-flow/core'
+import type { NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 
@@ -14,7 +15,8 @@ import './nodes/node.css'
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
 
-const { line, addSource, addFacility, addSink, addEdge } = useProductionLine()
+const { line, addSource, addFacility, addSink, addEdge, removeNode, removeEdge } =
+  useProductionLine()
 const { nodes, edges, pendingConnection } = useGraphAdapter(line)
 
 // Register custom node/edge types
@@ -58,6 +60,50 @@ const showDiag = ref(true)
 function diagLevelClass(level: string): string {
   return `diag-${level}`
 }
+
+// ---- Context menu + Delete ----
+
+const contextMenu = ref<{ x: number; y: number; type: 'node' | 'edge'; id: string } | null>(null)
+
+function onNodeContextMenu(event: NodeMouseEvent) {
+  const e = event.event
+  if (!e || typeof (e as Event).preventDefault !== 'function') return
+  ;(e as Event).preventDefault()
+  const { clientX, clientY } = e as { clientX: number; clientY: number }
+  contextMenu.value = { x: clientX, y: clientY, type: 'node', id: event.node.id }
+}
+
+function onEdgeContextMenu(event: EdgeMouseEvent) {
+  const e = event.event
+  if (!e || typeof (e as Event).preventDefault !== 'function') return
+  ;(e as Event).preventDefault()
+  const { clientX, clientY } = e as { clientX: number; clientY: number }
+  contextMenu.value = { x: clientX, y: clientY, type: 'edge', id: event.edge.id }
+}
+
+function onPaneClick() {
+  contextMenu.value = null
+}
+
+function deleteContextTarget() {
+  if (!contextMenu.value) return
+  if (contextMenu.value.type === 'node') removeNode(contextMenu.value.id)
+  else removeEdge(contextMenu.value.id)
+  contextMenu.value = null
+}
+
+// Keyboard delete (Backspace/Delete) for selected elements
+const { getSelectedNodes, getSelectedEdges } = useVueFlow()
+
+function onKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    const target = event.target as Element | null
+    if (target?.tagName === 'INPUT') return
+    for (const node of getSelectedNodes.value) removeNode(node.id)
+    for (const edge of getSelectedEdges.value) removeEdge(edge.id)
+    contextMenu.value = null
+  }
+}
 </script>
 
 <template>
@@ -70,9 +116,9 @@ function diagLevelClass(level: string): string {
     />
 
     <!-- Main area -->
-    <div class="main-area">
+    <div class="main-area" @keydown="onKeyDown">
       <!-- Canvas -->
-      <main class="canvas-container">
+      <main class="canvas-container" @click="onPaneClick">
         <VueFlow
           :nodes="nodes"
           :edges="edges"
@@ -89,7 +135,19 @@ function diagLevelClass(level: string): string {
               }
             }
           "
+          @node-context-menu="onNodeContextMenu"
+          @edge-context-menu="onEdgeContextMenu"
+          @pane-click="onPaneClick"
         />
+
+        <!-- Context menu -->
+        <div
+          v-if="contextMenu"
+          class="context-menu"
+          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        >
+          <button @click="deleteContextTarget">Delete</button>
+        </div>
       </main>
 
       <!-- Diagnostics bar -->
@@ -207,5 +265,32 @@ function diagLevelClass(level: string): string {
 .diag-empty {
   color: #555;
   font-size: 11px;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 100px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: #2a1a1a;
 }
 </style>
