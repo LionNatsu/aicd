@@ -14,10 +14,23 @@ import './nodes/node.css'
 
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
+import { useI18n } from 'vue-i18n'
 
 const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge } =
   useProductionLine()
 const { nodes, edges, pendingConnection } = useGraphAdapter(line)
+const { t } = useI18n()
+
+/**
+ * Translate raw item IDs in diagnostic messages to i18n names.
+ * Matches patterns like "item_xxx" and replaces with the translated name.
+ */
+function translateDiagMessage(msg: string): string {
+  return msg.replace(/\b(item_\w+)\b/g, (match) => {
+    const name = t(`item.${match}`)
+    return name === `item.${match}` ? match : name
+  })
+}
 
 // Register custom node/edge types
 const nodeTypes = {
@@ -164,7 +177,7 @@ function onKeyDown(event: KeyboardEvent) {
         <ul v-if="line.diagnostics.length" class="diagnostics">
           <li v-for="(d, i) in line.diagnostics" :key="i" :class="diagLevelClass(d.level)">
             <span class="diag-level">{{ d.level }}</span>
-            {{ d.message }}
+            {{ translateDiagMessage(d.message) }}
           </li>
         </ul>
         <p v-else class="diag-empty">No issues</p>
