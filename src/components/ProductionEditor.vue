@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw } from 'vue'
+import { markRaw, ref } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -8,6 +8,7 @@ import SourceNodeVue from './nodes/SourceNode.vue'
 import FacilityNodeVue from './nodes/FacilityNode.vue'
 import SinkNodeVue from './nodes/SinkNode.vue'
 import FlowEdgeVue from './edges/FlowEdge.vue'
+import SidebarVue from './Sidebar.vue'
 import './nodes/node.css'
 
 import { useProductionLine } from '@/composables/useProductionLine'
@@ -27,26 +28,32 @@ const edgeTypes = {
   flow: markRaw(FlowEdgeVue),
 }
 
-// ---- Quick-add demo nodes ----
+// ---- Node placement (auto-offset from last position) ----
 
-function addDemoSource() {
-  addSource({ itemId: 'item_1001', rate: 10, position: { x: 50, y: 200 } })
+let nextY = 200
+
+function handleAddSource(itemId: string, position: { x: number; y: number }) {
+  addSource({ itemId, rate: 10, position: { x: position.x, y: nextY } })
+  nextY += 120
 }
 
-function addDemoFacility() {
-  addFacility({
-    facilityId: 'crafter_1',
-    recipeId: 'recipe_crafter_1_1',
-    count: 1,
-    position: { x: 350, y: 200 },
-  })
+function handleAddFacility(
+  facilityId: string,
+  recipeId: string,
+  position: { x: number; y: number },
+) {
+  addFacility({ facilityId, recipeId, count: 1, position: { x: position.x, y: nextY } })
+  nextY += 120
 }
 
-function addDemoSink() {
-  addSink({ itemId: 'item_1002', rate: 5, position: { x: 650, y: 200 } })
+function handleAddSink(itemId: string, position: { x: number; y: number }) {
+  addSink({ itemId, rate: 5, position: { x: position.x, y: nextY } })
+  nextY += 120
 }
 
 // ---- Diagnostics ----
+
+const showDiag = ref(true)
 
 function diagLevelClass(level: string): string {
   return `diag-${level}`
@@ -56,44 +63,51 @@ function diagLevelClass(level: string): string {
 <template>
   <div class="production-editor">
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <h2>Palette</h2>
-      <div class="palette-actions">
-        <button @click="addDemoSource">+ Source</button>
-        <button @click="addDemoFacility">+ Facility</button>
-        <button @click="addDemoSink">+ Sink</button>
-      </div>
+    <SidebarVue
+      :on-add-source="handleAddSource"
+      :on-add-facility="handleAddFacility"
+      :on-add-sink="handleAddSink"
+    />
 
-      <h3>Diagnostics</h3>
-      <ul v-if="line.diagnostics.length" class="diagnostics">
-        <li v-for="(d, i) in line.diagnostics" :key="i" :class="diagLevelClass(d.level)">
-          <span class="diag-level">{{ d.level }}</span>
-          {{ d.message }}
-        </li>
-      </ul>
-      <p v-else class="diag-empty">No issues</p>
-    </aside>
-
-    <!-- Canvas -->
-    <main class="canvas-container">
-      <VueFlow
-        :nodes="nodes"
-        :edges="edges"
-        :node-types="nodeTypes"
-        :edge-types="edgeTypes"
-        fit-view-on-init
-        :default-edge-options="{ type: 'flow' }"
-        :connection-line-style="{ stroke: '#42b883' }"
-        @connect="
-          () => {
-            if (pendingConnection) {
-              addEdge(pendingConnection)
-              pendingConnection = null
+    <!-- Main area -->
+    <div class="main-area">
+      <!-- Canvas -->
+      <main class="canvas-container">
+        <VueFlow
+          :nodes="nodes"
+          :edges="edges"
+          :node-types="nodeTypes"
+          :edge-types="edgeTypes"
+          fit-view-on-init
+          :default-edge-options="{ type: 'flow' }"
+          :connection-line-style="{ stroke: '#42b883' }"
+          @connect="
+            () => {
+              if (pendingConnection) {
+                addEdge(pendingConnection)
+                pendingConnection = null
+              }
             }
-          }
-        "
-      />
-    </main>
+          "
+        />
+      </main>
+
+      <!-- Diagnostics bar -->
+      <footer v-if="showDiag" class="diagnostics-bar">
+        <div class="diag-header">
+          <span>Diagnostics</span>
+          <span class="diag-count">{{ line.diagnostics.length }}</span>
+          <button class="diag-close" @click="showDiag = false">×</button>
+        </div>
+        <ul v-if="line.diagnostics.length" class="diagnostics">
+          <li v-for="(d, i) in line.diagnostics" :key="i" :class="diagLevelClass(d.level)">
+            <span class="diag-level">{{ d.level }}</span>
+            {{ d.message }}
+          </li>
+        </ul>
+        <p v-else class="diag-empty">No issues</p>
+      </footer>
+    </div>
   </div>
 </template>
 
@@ -105,61 +119,55 @@ function diagLevelClass(level: string): string {
   overflow: hidden;
 }
 
-.sidebar {
-  width: 240px;
-  min-width: 240px;
-  background: #111;
-  border-right: 1px solid #333;
-  padding: 16px;
+.main-area {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-}
-
-.sidebar h2 {
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #42b883;
-  margin: 0;
-}
-
-.sidebar h3 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #888;
-  margin: 0;
-  margin-top: 8px;
-}
-
-.palette-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.palette-actions button {
-  padding: 8px 12px;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #ededed;
-  cursor: pointer;
-  font-size: 13px;
-  text-align: left;
-  transition: border-color 0.15s;
-}
-
-.palette-actions button:hover {
-  border-color: #42b883;
+  overflow: hidden;
 }
 
 .canvas-container {
   flex: 1;
-  height: 100vh;
   background: #0d0d0d;
+}
+
+.diagnostics-bar {
+  background: #111;
+  border-top: 1px solid #333;
+  padding: 8px 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.diag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.diag-count {
+  background: #333;
+  color: #ededed;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.diag-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .diagnostics {
@@ -168,12 +176,11 @@ function diagLevelClass(level: string): string {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
+  gap: 3px;
 }
 
 .diagnostics li {
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   background: #1a1a1a;
 }
@@ -198,7 +205,7 @@ function diagLevelClass(level: string): string {
 }
 
 .diag-empty {
-  font-size: 11px;
   color: #555;
+  font-size: 11px;
 }
 </style>
