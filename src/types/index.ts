@@ -20,3 +20,14 @@ export type {
   Diagnostic,
   ProductionLine,
 } from './graph'
+
+export type {
+  SourceNodeData,
+  FacilityNodeData,
+  SinkNodeData,
+  AicdNodeData,
+  FlowEdgeData,
+  AicdNode,
+  AicdEdge,
+} from './vue-flow'
+export { handleId, parseHandleId, toVFNode, toVFEdge, fromVFEdge } from './vue-flow'
