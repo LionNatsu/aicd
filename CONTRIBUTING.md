@@ -99,6 +99,21 @@ refactor(types): extract Building interface to separate module
 - Subject line: 72 characters or fewer
 - Body: wrap at 72 characters, explain **what** and **why** (not how)
 
+## Before You Push
+
+**Always run `bun run build` before pushing.** This is the same command CI runs
+(`vue-tsc -b && vite build`). It is stricter than `vue-tsc --noEmit` — project
+mode (`-b`) catches type errors that `--noEmit` misses. If it passes locally,
+it will pass in CI.
+
+```bash
+# Quick check (type-only, less strict)
+bun run lint
+
+# Full verification — MUST pass before every push
+bun run build
+```
+
 ## Pull Request Process
 
 1. **Fork** the repository and create your branch from `main`
