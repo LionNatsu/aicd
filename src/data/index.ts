@@ -42,4 +42,21 @@ export function getRecipesByFacility(facilityId: string): Recipe[] {
   return recipes.filter((r) => r.facilityId === facilityId)
 }
 
+// ---------------------------------------------------------------------------
+// Icon URLs (derived from ID convention)
+// ---------------------------------------------------------------------------
+
+/** Base path for static assets, matches Vite's base config. */
+const BASE = import.meta.env.BASE_URL ?? '/'
+
+/** Get the icon URL for an item by its ID. */
+export function getItemIconUrl(itemId: string): string {
+  return `${BASE}images/items/${itemId}.png`
+}
+
+/** Get the icon URL for a facility by its ID. */
+export function getFacilityIconUrl(facilityId: string): string {
+  return `${BASE}images/facilities/${facilityId}.png`
+}
+
 export { items, recipes, facilities }
