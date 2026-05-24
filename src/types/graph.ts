@@ -98,16 +98,3 @@ export interface Diagnostic {
   message: string
   relatedEdges: string[]
 }
-
-// ---------------------------------------------------------------------------
-// Production line
-// ---------------------------------------------------------------------------
-
-/** A complete production line blueprint / graph. */
-export interface ProductionLine {
-  id: string
-  name: string
-  nodes: Map<string, ProductionNode>
-  edges: FlowEdge[]
-  diagnostics: Diagnostic[]
-}

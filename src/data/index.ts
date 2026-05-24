@@ -27,16 +27,6 @@ export function getFacility(id: string): Facility | undefined {
   return facilityMap.get(id)
 }
 
-/** Find all recipes that produce a given item. */
-export function getRecipesByOutput(itemId: string): Recipe[] {
-  return recipes.filter((r) => r.outputs.some((o) => o.itemId === itemId))
-}
-
-/** Find all recipes that consume a given item. */
-export function getRecipesByInput(itemId: string): Recipe[] {
-  return recipes.filter((r) => r.inputs.some((i) => i.itemId === itemId))
-}
-
 /** Find all recipes for a given facility. */
 export function getRecipesByFacility(facilityId: string): Recipe[] {
   return recipes.filter((r) => r.facilityId === facilityId)

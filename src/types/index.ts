@@ -2,7 +2,6 @@ export type {
   Item,
   RecipeItem,
   Recipe,
-  Buffer,
   Buffers,
   PlacementCap,
   Facility,
@@ -18,7 +17,6 @@ export type {
   FlowEdge,
   Port,
   Diagnostic,
-  ProductionLine,
 } from './graph'
 
 export type {
@@ -30,4 +28,4 @@ export type {
   AicdNode,
   AicdEdge,
 } from './vue-flow'
-export { handleId, parseHandleId, toVFNode, toVFEdge, fromVFEdge } from './vue-flow'
+export { parseHandleId, toVFNode, toVFEdge } from './vue-flow'

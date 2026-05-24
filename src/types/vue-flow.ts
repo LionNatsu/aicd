@@ -19,7 +19,6 @@ import type {
   SinkNode,
   FlowEdge as DomainEdge,
 } from '@/types'
-
 // ---------------------------------------------------------------------------
 // Node data payloads
 // ---------------------------------------------------------------------------
@@ -139,20 +138,5 @@ export function toVFEdge(edge: DomainEdge): AicdEdge {
 }
 
 // ---------------------------------------------------------------------------
-// Conversion: Vue Flow → Domain (for connection events)
+// Conversion: Domain → Vue Flow
 // ---------------------------------------------------------------------------
-
-export function fromVFEdge(edge: AicdEdge): Omit<DomainEdge, 'id'> {
-  const srcHandle = edge.sourceHandle ? parseHandleId(edge.sourceHandle) : null
-  const tgtHandle = edge.targetHandle ? parseHandleId(edge.targetHandle) : null
-
-  return {
-    sourceId: edge.source,
-    sourcePort: srcHandle?.portIndex ?? 0,
-    targetId: edge.target,
-    targetPort: tgtHandle?.portIndex ?? 0,
-    itemId: edge.data?.itemId ?? '',
-    rate: edge.data?.rate ?? 0,
-    transportType: edge.data?.transportType ?? 'belt',
-  }
-}

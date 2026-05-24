@@ -17,15 +17,13 @@ import { getItem } from '@/data'
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface ResolvedPorts {
-  inputs: Port[]
-  outputs: Port[]
-}
-
 /**
  * Resolve all I/O ports for a facility running a given recipe.
  */
-export function resolvePorts(facility: Facility, recipe: Recipe): ResolvedPorts {
+export function resolvePorts(
+  facility: Facility,
+  recipe: Recipe,
+): { inputs: Port[]; outputs: Port[] } {
   const inputs = assignPorts(
     recipe.inputs.map((ri) => ri.itemId),
     facility.buffersIn.belt,
@@ -95,18 +93,4 @@ function assignPorts(
   }
 
   return ports
-}
-
-/**
- * Convenience: get just the input port count for a facility+recipe.
- */
-export function getInputPortCount(facility: Facility, recipe: Recipe): number {
-  return resolvePorts(facility, recipe).inputs.length
-}
-
-/**
- * Convenience: get just the output port count for a facility+recipe.
- */
-export function getOutputPortCount(facility: Facility, recipe: Recipe): number {
-  return resolvePorts(facility, recipe).outputs.length
 }
