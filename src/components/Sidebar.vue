@@ -16,11 +16,12 @@ type Tab = 'source' | 'facility' | 'sink'
 const activeTab = ref<Tab>('source')
 const search = ref('')
 
-// Filter items that can be targets (not intermediate-only)
-const targetItems = computed(() => {
+// All items available as Source or Sink — Source/Sink are node roles, not item categories.
+// asTarget only controls whether the item can be a production line's final target
+// (for auto-balancing), not whether it can appear in the graph.
+const allItems = computed(() => {
   const q = search.value.toLowerCase()
   return items.filter((i) => {
-    if (i.asTarget === false) return false
     const name = t(`item.${i.id}`).toLowerCase()
     return !q || name.includes(q) || i.id.toLowerCase().includes(q)
   })
@@ -83,9 +84,17 @@ const tabs: { key: Tab; label: string }[] = [
 
     <!-- Source tab -->
     <ul v-if="activeTab === 'source'" class="item-list">
-      <li v-for="item in targetItems" :key="item.id" @click="selectSource(item.id)">
+      <li
+        v-for="item in allItems"
+        :key="item.id"
+        :class="{ intermediate: item.asTarget === false }"
+        @click="selectSource(item.id)"
+      >
         <img :src="getItemIconUrl(item.id)" class="list-icon" />
         <span class="list-name">{{ t(`item.${item.id}`) }}</span>
+        <span v-if="item.asTarget === false" class="list-badge intermediate-badge">
+          intermediate
+        </span>
         <span v-if="item.transportType === 'pipe'" class="list-badge pipe">pipe</span>
       </li>
     </ul>
@@ -115,9 +124,17 @@ const tabs: { key: Tab; label: string }[] = [
 
     <!-- Sink tab -->
     <ul v-if="activeTab === 'sink'" class="item-list">
-      <li v-for="item in targetItems" :key="item.id" @click="selectSink(item.id)">
+      <li
+        v-for="item in allItems"
+        :key="item.id"
+        :class="{ intermediate: item.asTarget === false }"
+        @click="selectSink(item.id)"
+      >
         <img :src="getItemIconUrl(item.id)" class="list-icon" />
         <span class="list-name">{{ t(`item.${item.id}`) }}</span>
+        <span v-if="item.asTarget === false" class="list-badge intermediate-badge">
+          intermediate
+        </span>
         <span v-if="item.transportType === 'pipe'" class="list-badge pipe">pipe</span>
       </li>
     </ul>
@@ -237,5 +254,14 @@ const tabs: { key: Tab; label: string }[] = [
 .list-badge.pipe {
   background: #1a2a3a;
   color: #4a9eff;
+}
+
+.list-badge.intermediate-badge {
+  background: #2a2a1a;
+  color: #c9a825;
+}
+
+.item-list li.intermediate {
+  opacity: 0.7;
 }
 </style>

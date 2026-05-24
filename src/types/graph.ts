@@ -2,10 +2,16 @@
  * Graph editor types for the AIC production line visual editor.
  *
  * The production line is modelled as a directed graph where:
- * - Source nodes supply raw materials
+ * - Source nodes supply items (any item: raw, intermediate, or finished)
  * - Facility nodes process inputs into outputs via recipes
- * - Sink nodes consume finished products
+ * - Sink nodes consume items (any item: raw, intermediate, or finished)
  * - Edges represent material flows between ports
+ *
+ * Source and Sink are *node roles* in the graph, not item categories.
+ * Any item can appear as a Source (producing) or Sink (consuming).
+ * For example, an intermediate product can be a Source (produced by one
+ * facility) and also a Sink (consumed by another facility) in the same
+ * production line.
  *
  * Cycles are natively supported (e.g. perpetual seed-plant loops,
  * byproduct recycling).
@@ -22,7 +28,7 @@ interface BaseNode {
   position: { x: number; y: number }
 }
 
-/** Material input source (warehouse output, mining rig, etc.) */
+/** Item source node — produces an item at a given rate. Any item can be a source. */
 export interface SourceNode extends BaseNode {
   type: 'source'
   itemId: string
@@ -39,7 +45,7 @@ export interface FacilityNode extends BaseNode {
   count: number
 }
 
-/** Material output sink (warehouse intake, outpost delivery, disposal, etc.) */
+/** Item sink node — consumes an item at a given rate. Any item can be a sink. */
 export interface SinkNode extends BaseNode {
   type: 'sink'
   itemId: string

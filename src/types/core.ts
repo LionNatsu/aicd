@@ -28,7 +28,12 @@ export interface Item {
   tier: number
   /** How this item is transported. Defaults to 'belt' if omitted. */
   transportType?: TransportType
-  /** false = only an intermediate, not a valid user production target. */
+  /**
+   * Whether this item can be set as a production line's final output target
+   * (for auto-balancing). Intermediates have `asTarget: false` but can still
+   * appear as Source or Sink nodes in the graph — Source/Sink are node roles,
+   * not item categories.
+   */
   asTarget?: boolean
 }
 
