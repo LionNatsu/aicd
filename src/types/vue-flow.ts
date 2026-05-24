@@ -4,9 +4,9 @@
  * Mapping:
  * - ProductionNode.type ('supply'|'facility'|'sink') → VF Node.type
  * - ProductionNode.position → VF Node.position
- * - Port.index → VF Handle.id  (`in-0`, `in-1`, `out-0`, `out-1`, …)
- * - FlowEdge.sourceId/sourcePort → VF Edge.source/sourceHandle
- * - FlowEdge.targetId/targetPort → VF Edge.target/targetHandle
+ * - Port.handleId → VF Handle.id  (`in-0-0`, `out-1-0`, …)
+ * - FlowEdge.sourceId/sourceHandle → VF Edge.source/sourceHandle
+ * - FlowEdge.targetId/targetHandle → VF Edge.target/targetHandle
  * - Domain-specific fields → VF Node.data / Edge.data
  */
 
@@ -69,16 +69,24 @@ export type AicdEdge = Edge<FlowEdgeData>
 // Handle ID helpers
 // ---------------------------------------------------------------------------
 
-/** Format a port index into a Vue Flow Handle id. */
-export function handleId(direction: 'in' | 'out', portIndex: number): string {
-  return `${direction}-${portIndex}`
+/** Format a handle ID from direction, group index, and port within group. */
+export function handleId(direction: 'in' | 'out', groupIndex: number, portInGroup: number): string {
+  return `${direction}-${groupIndex}-${portInGroup}`
 }
 
-/** Parse a Vue Flow Handle id back into direction + port index. */
-export function parseHandleId(id: string): { direction: 'in' | 'out'; portIndex: number } | null {
-  const match = id.match(/^(in|out)-(\d+)$/)
+/** Parse a handle ID back into direction, group index, and port within group. */
+export function parseHandleId(id: string): {
+  direction: 'in' | 'out'
+  groupIndex: number
+  portInGroup: number
+} | null {
+  const match = id.match(/^(in|out)-(\d+)-(\d+)$/)
   if (!match) return null
-  return { direction: match[1] as 'in' | 'out', portIndex: Number(match[2]) }
+  return {
+    direction: match[1] as 'in' | 'out',
+    groupIndex: Number(match[2]),
+    portInGroup: Number(match[3]),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -129,9 +137,9 @@ export function toVFEdge(edge: DomainEdge): AicdEdge {
   return {
     id: edge.id,
     source: edge.sourceId,
-    sourceHandle: handleId('out', edge.sourcePort),
+    sourceHandle: edge.sourceHandle,
     target: edge.targetId,
-    targetHandle: handleId('in', edge.targetPort),
+    targetHandle: edge.targetHandle,
     type: 'flow',
     data: {
       itemId: edge.itemId,

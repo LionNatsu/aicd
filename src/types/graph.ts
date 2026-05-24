@@ -92,9 +92,9 @@ export type ProductionNode = SupplyNode | FacilityNode | SinkNode
 export interface FlowEdge {
   id: string
   sourceId: string
-  sourcePort: number
+  sourceHandle: string
   targetId: string
-  targetPort: number
+  targetHandle: string
   itemId: string
   /** Number of parallel transport lines carrying this flow. */
   parallelCount: number
@@ -105,10 +105,21 @@ export interface FlowEdge {
 // Ports
 // ---------------------------------------------------------------------------
 
-/** A resolved I/O port on a facility node. */
+/** A resolved I/O port on a facility node.
+ *
+ *  Each port is identified by its handleId (e.g. "out-0-0", "in-1-0")
+ *  which encodes direction, buffer group index, and port within that group.
+ *  This ensures ports are uniquely identifiable even when a facility has
+ *  multiple buffer groups of the same transport type (e.g. mix_pool's
+ *  two independent pipe groups). */
 export interface Port {
-  index: number
+  /** Handle ID: "{direction}-{groupIndex}-{portInGroup}" */
+  handleId: string
   direction: 'in' | 'out'
+  /** Which buffer group this port belongs to (0 = first belt/pipe group, etc.) */
+  groupIndex: number
+  /** Port index within its buffer group. */
+  portInGroup: number
   /** Item bound to this port (determined by the selected recipe). */
   itemId?: string
   transportType: TransportType

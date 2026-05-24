@@ -15,6 +15,8 @@ import './nodes/node.css'
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
 import { useI18n } from 'vue-i18n'
+import { getRecipe, getFacility } from '@/data'
+import { resolvePorts } from '@/utils/port-resolver'
 
 const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge } =
   useProductionLine()
@@ -57,8 +59,38 @@ function handleAddFacility(
   recipeId: string,
   position: { x: number; y: number },
 ) {
+  const facility = getFacility(facilityId)
+  const recipe = getRecipe(recipeId)
   addFacility({ facilityId, recipeId, count: 1, position: { x: position.x, y: nextY } })
   nextY += 120
+
+  // Auto-add disposal sinks for byproduct outputs.
+  // A byproduct is any recipe output that is NOT the primary demand target
+  // (i.e. not the item the user originally requested).
+  // We detect this by checking if there's already a demand sink for each output.
+  if (facility && recipe) {
+    const ports = resolvePorts(facility, recipe)
+    for (const port of ports.outputs) {
+      if (!port.itemId) continue
+      // Check if a demand sink for this item already exists
+      const hasDemandSink = [...line.nodes.values()].some(
+        (n) => n.type === 'sink' && n.itemId === port.itemId && n.purpose === 'demand',
+      )
+      // Check if a disposal sink for this item already exists
+      const hasDisposalSink = [...line.nodes.values()].some(
+        (n) => n.type === 'sink' && n.itemId === port.itemId && n.purpose === 'disposal',
+      )
+      if (!hasDemandSink && !hasDisposalSink) {
+        addSink({
+          itemId: port.itemId,
+          rate: 0,
+          purpose: 'disposal',
+          position: { x: 700, y: nextY },
+        })
+        nextY += 120
+      }
+    }
+  }
 }
 
 function handleAddSink(

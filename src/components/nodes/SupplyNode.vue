@@ -20,7 +20,7 @@ const { t } = useI18n()
         <span class="label">Supply</span>
       </div>
     </div>
-    <Handle :id="'out-0'" type="source" :position="Position.Right" />
+    <Handle :id="'out-0-0'" type="source" :position="Position.Right" />
   </div>
 </template>
 

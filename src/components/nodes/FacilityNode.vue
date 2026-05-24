@@ -12,7 +12,9 @@ const props = defineProps<NodeProps<FacilityNodeData>>()
 const { t } = useI18n()
 
 interface PortInfo {
-  index: number
+  handleId: string
+  /** Visual row index (for vertical positioning of handles). */
+  rowIndex: number
   itemId: string
   itemName: string
   transportType: TransportType
@@ -25,16 +27,17 @@ const resolved = computed(() => {
 
   const { inputs, outputs } = resolvePorts(facility, recipe)
 
-  const toInfo = (p: Port): PortInfo => ({
-    index: p.index,
+  const toInfo = (p: Port, rowIndex: number): PortInfo => ({
+    handleId: p.handleId,
+    rowIndex,
     itemId: p.itemId ?? '',
     itemName: p.itemId ? t(`item.${p.itemId}`) : '',
     transportType: p.transportType,
   })
 
   return {
-    inputs: inputs.map(toInfo),
-    outputs: outputs.map(toInfo),
+    inputs: inputs.map((p, i) => toInfo(p, i)),
+    outputs: outputs.map((p, i) => toInfo(p, i)),
   }
 })
 
@@ -65,15 +68,15 @@ const portCount = computed(() =>
         <span class="value">x{{ props.data?.count ?? 1 }}</span>
       </div>
     </div>
-    <!-- Port labels + Handles -->
+    <!-- Port labels -->
     <div class="port-area">
       <div class="port-col port-in">
-        <div v-for="p in resolved.inputs" :key="'in-' + p.index" class="port-row">
+        <div v-for="p in resolved.inputs" :key="p.handleId" class="port-row">
           <span :class="['port-name', p.transportType]">{{ p.itemName }}</span>
         </div>
       </div>
       <div class="port-col port-out">
-        <div v-for="p in resolved.outputs" :key="'out-' + p.index" class="port-row">
+        <div v-for="p in resolved.outputs" :key="p.handleId" class="port-row">
           <span :class="['port-name', p.transportType]">{{ p.itemName }}</span>
         </div>
       </div>
@@ -81,22 +84,22 @@ const portCount = computed(() =>
     <!-- Dynamic input handles (positioned alongside port labels) -->
     <Handle
       v-for="p in resolved.inputs"
-      :id="'in-' + p.index"
-      :key="'in-' + p.index"
+      :id="p.handleId"
+      :key="p.handleId"
       type="target"
       :position="Position.Left"
       :class="['port-handle', p.transportType]"
-      :style="{ top: `calc(var(--header-h) + var(--body-h) + ${p.index * 20 + 6}px)` }"
+      :style="{ top: `calc(var(--header-h) + var(--body-h) + ${p.rowIndex * 20 + 6}px)` }"
     />
     <!-- Dynamic output handles -->
     <Handle
       v-for="p in resolved.outputs"
-      :id="'out-' + p.index"
-      :key="'out-' + p.index"
+      :id="p.handleId"
+      :key="p.handleId"
       type="source"
       :position="Position.Right"
       :class="['port-handle', p.transportType]"
-      :style="{ top: `calc(var(--header-h) + var(--body-h) + ${p.index * 20 + 6}px)` }"
+      :style="{ top: `calc(var(--header-h) + var(--body-h) + ${p.rowIndex * 20 + 6}px)` }"
     />
   </div>
 </template>

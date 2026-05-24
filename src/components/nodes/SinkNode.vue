@@ -23,7 +23,7 @@ const isDisposal = props.data?.purpose === 'disposal'
         <span class="value">{{ props.data?.rate?.toFixed(1) ?? '0.0' }}/s</span>
       </div>
     </div>
-    <Handle :id="'in-0'" type="target" :position="Position.Left" />
+    <Handle :id="'in-0-0'" type="target" :position="Position.Left" />
   </div>
 </template>
 

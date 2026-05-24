@@ -39,9 +39,6 @@ export function useGraphAdapter(line: ProductionLineState) {
   // Handle new connections from drag-to-connect
   onConnect((connection: Connection) => {
     const srcHandle = connection.sourceHandle ? parseHandleId(connection.sourceHandle) : null
-    const tgtHandle = connection.targetHandle ? parseHandleId(connection.targetHandle) : null
-    const srcPortIndex = srcHandle?.portIndex ?? 0
-    const tgtPortIndex = tgtHandle?.portIndex ?? 0
 
     // Auto-infer itemId and transportType from source node
     const srcNode = line.nodes.get(connection.source)
@@ -57,9 +54,11 @@ export function useGraphAdapter(line: ProductionLineState) {
         // Look up which item is on this output port
         const facility = getFacility(srcNode.facilityId)
         const recipe = getRecipe(srcNode.recipeId)
-        if (facility && recipe) {
+        if (facility && recipe && srcHandle) {
           const ports = resolvePorts(facility, recipe)
-          const port = ports.outputs.find((p) => p.index === srcPortIndex)
+          const port = ports.outputs.find(
+            (p) => p.groupIndex === srcHandle.groupIndex && p.portInGroup === srcHandle.portInGroup,
+          )
           if (port?.itemId) {
             itemId = port.itemId
             const item = getItem(itemId)
@@ -69,11 +68,14 @@ export function useGraphAdapter(line: ProductionLineState) {
       }
     }
 
+    const sourceHandle = connection.sourceHandle ?? 'out-0-0'
+    const targetHandle = connection.targetHandle ?? 'in-0-0'
+
     pendingConnection.value = {
       sourceId: connection.source,
-      sourcePort: srcPortIndex,
+      sourceHandle,
       targetId: connection.target,
-      targetPort: tgtPortIndex,
+      targetHandle,
       itemId,
       parallelCount: 1,
       transportType,
@@ -83,9 +85,9 @@ export function useGraphAdapter(line: ProductionLineState) {
   /** Pending connection from a user drag-to-connect action. */
   const pendingConnection = ref<{
     sourceId: string
-    sourcePort: number
+    sourceHandle: string
     targetId: string
-    targetPort: number
+    targetHandle: string
     itemId: string
     parallelCount: number
     transportType: TransportType

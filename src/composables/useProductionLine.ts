@@ -284,14 +284,14 @@ export function useProductionLine(initialId?: string) {
 
     // Check unconnected output ports (byproducts that will cause jams)
     const ports = resolvePorts(facility, recipe)
-    const connectedOutItems = new Set(outEdges.map((e) => e.itemId))
+    const connectedOutHandles = new Set(outEdges.map((e) => e.sourceHandle))
     for (const port of ports.outputs) {
-      if (port.itemId && !connectedOutItems.has(port.itemId)) {
+      if (port.itemId && !connectedOutHandles.has(port.handleId)) {
         diagnostics.push({
           nodeId,
           level: 'warning',
           kind: 'unconnected_output',
-          message: `Output port ${port.index} (${port.itemId}) has no outgoing connection — facility will jam`,
+          message: `Output port ${port.handleId} (${port.itemId}) has no outgoing connection — facility will jam`,
           relatedEdges: [],
         })
       }
