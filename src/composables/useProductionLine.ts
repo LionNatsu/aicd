@@ -20,7 +20,7 @@ function genId(prefix: string): string {
   return `${prefix}_${nextId++}`
 }
 
-interface ProductionLineState {
+export interface ProductionLineState {
   id: string
   name: string
   nodes: Map<string, ProductionNode>
