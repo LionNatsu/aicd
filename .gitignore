@@ -41,5 +41,8 @@ npm-debug.log*
 # Bun
 .bun/
 
+# Playwright CLI
+.playwright-cli/
+
 # Test coverage
 coverage/
