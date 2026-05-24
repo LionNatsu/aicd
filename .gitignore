@@ -1,8 +1,13 @@
 # Dependencies
 node_modules/
 
-# Game assets (downloaded via prebuild)
+# Game assets (downloaded via prebuild from aicd-data)
 public/images/
+src/data/items.json
+src/data/recipes.json
+src/data/facilities.json
+src/i18n/zh-Hans/item.json
+src/i18n/zh-Hans/facility.json
 
 # Build output
 dist/

@@ -1,8 +1,20 @@
-import { items } from './items'
-import { recipes } from './recipes'
-import { facilities } from './facilities'
+import rawItems from './items.json'
+import rawRecipes from './recipes.json'
+import rawFacilities from './facilities.json'
 
 import type { Item, Recipe, Facility } from '@/types'
+import { FacilityCategory } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Type-safe data: cast raw JSON values to domain types
+// ---------------------------------------------------------------------------
+
+const items = rawItems as Item[]
+const recipes = rawRecipes as Recipe[]
+const facilities = rawFacilities.map((f) => ({
+  ...f,
+  category: f.category as FacilityCategory,
+})) as Facility[]
 
 // ---------------------------------------------------------------------------
 // Lookup helpers
