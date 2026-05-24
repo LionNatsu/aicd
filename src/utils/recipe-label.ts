@@ -32,9 +32,9 @@ function formatItemList(t: TranslateFn, items: { itemId: string; amount: number 
 }
 
 export interface RecipeLabel {
-  /** Full label: "赤铜矿+清水 → 赤铜块+污水" */
+  /** Full label: "赤铜矿+清水 → 赤铜块+污水" or "污水 → 消耗" */
   full: string
-  /** Short label (outputs only): "赤铜块+污水" */
+  /** Short label: "赤铜块+污水" or "污水 → 消耗" */
   short: string
   /** Input item names: ["赤铜矿", "清水"] */
   inputNames: string[]
@@ -44,6 +44,9 @@ export interface RecipeLabel {
 
 /**
  * Generate a human-readable label for a recipe.
+ *
+ * For production recipes (has outputs): "输入 → 输出"
+ * For consumption recipes (no outputs):  "输入 → 消耗"
  *
  * @param recipeId - The recipe ID to look up
  * @param t - vue-i18n translation function
@@ -57,11 +60,12 @@ export function getRecipeLabel(recipeId: string, t: TranslateFn): RecipeLabel | 
   const outputNames = recipe.outputs.map((i) => itemName(t, i.itemId))
 
   const inputPart = formatItemList(t, recipe.inputs)
-  const outputPart = formatItemList(t, recipe.outputs)
+  const hasOutputs = recipe.outputs.length > 0
+  const outputPart = hasOutputs ? formatItemList(t, recipe.outputs) : '消耗'
 
   return {
     full: `${inputPart} → ${outputPart}`,
-    short: outputPart,
+    short: hasOutputs ? outputPart : `${inputPart} → ${outputPart}`,
     inputNames,
     outputNames,
   }
