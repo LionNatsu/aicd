@@ -104,7 +104,7 @@ function handleAddFacility(
           itemId: port.itemId,
           rate: 0,
           purpose: 'disposal',
-          position: { x: 700, y: nextY },
+          position: { x: 650, y: nextY },
         })
         nextY += 120
       }
@@ -189,7 +189,6 @@ function onKeyDown(event: KeyboardEvent) {
           :edges="edges"
           :node-types="nodeTypes"
           :edge-types="edgeTypes"
-          fit-view-on-init
           :default-edge-options="{ type: 'flow' }"
           :connection-line-style="{ stroke: '#42b883' }"
           @node-click="onNodeClick"

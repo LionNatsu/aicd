@@ -242,16 +242,16 @@ const highlightedFacilityId = computed(() => {
 // ---- Actions ----
 
 function selectSupply(itemId: string) {
-  props.onAddSupply(itemId, { x: 100, y: 300 })
+  props.onAddSupply(itemId, { x: 50, y: 300 })
 }
 
 function selectRecipe(facilityId: string, recipeId: string) {
-  props.onAddFacility(facilityId, recipeId, { x: 400, y: 300 })
+  props.onAddFacility(facilityId, recipeId, { x: 350, y: 300 })
 }
 
 function addDemandSink(itemId: string) {
   // Add the sink
-  props.onAddSink(itemId, { x: 700, y: 300 }, 'demand')
+  props.onAddSink(itemId, { x: 650, y: 300 }, 'demand')
 
   // Then show inline recipe picker: "how is this item produced?"
   const recipes = getRecipesByOutput(itemId)
@@ -268,7 +268,7 @@ function addDemandSink(itemId: string) {
 }
 
 function addDisposalSink(itemId: string) {
-  props.onAddSink(itemId, { x: 700, y: 300 }, 'disposal')
+  props.onAddSink(itemId, { x: 650, y: 300 }, 'disposal')
 }
 
 function pickRecipe(entry: RecipeEntry) {
