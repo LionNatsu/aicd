@@ -55,14 +55,24 @@ export interface FacilityNode extends BaseNode {
 }
 
 /**
- * A demand target — the production goal that the line must satisfy.
- * The rate drives the reverse derivation: "I need X/s of this item".
+ * A consumption endpoint — where items leave the production line.
+ *
+ * Two purposes:
+ * - `demand` — "I need X/s of this item" (production goal)
+ * - `disposal` — "this byproduct must go somewhere or the line jams" (forced)
+ *
+ * The graph structure is identical regardless of purpose. The distinction
+ * affects UI presentation and default rate behavior:
+ * - Demand sinks: user-specified rate (the target to satisfy)
+ * - Disposal sinks: rate defaults to consuming everything arriving
  */
 export interface SinkNode extends BaseNode {
   type: 'sink'
   itemId: string
-  /** Target consumption rate in items / second (user-specified goal). */
+  /** Target consumption rate in items / second. For demand sinks, this is user-specified. For disposal sinks, defaults to incoming rate. */
   rate: number
+  /** Why this sink exists. Affects UI style and default behavior. */
+  purpose: 'demand' | 'disposal'
 }
 
 export type ProductionNode = SupplyNode | FacilityNode | SinkNode

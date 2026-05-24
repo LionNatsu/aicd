@@ -43,6 +43,25 @@
 | 水力采矿钻机       | Hydro Mining Rig          | No power needed (water-driven). Outputs Cuprium Ore + Sewage. Does NOT send to Depot — must pipe Sewage away. |
 | 流体泵             | Fluid Pump                | Requires power. Pumps fluids from the environment. Outputs to pipe, not Depot.                                |
 
+## Waste & Disposal Facilities
+
+| CN         | EN                   | Facility ID        | Function                                                                                                                                                     |
+| ---------- | -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 废水处理机 | Water Treatment Unit | `liquid_cleaner_1` | Consumes Sewage (destroys it completely). Can also process Xircon Effluent / Inert Xircon Effluent with limited efficiency. Zero outputs.                    |
+| 给水器     | Water Dispenser      | —                  | Discharges liquids into the environment (pond/lake). Requires water proximity, 10 power, 3 units/s. Not pure destruction — water remains in the environment. |
+
+## Key Byproducts
+
+| CN           | EN                    | Source                             | Must be handled? | How                                                                              |
+| ------------ | --------------------- | ---------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| 污水         | Sewage                | Reactor Crucible, Hydro Mining Rig | **Yes**          | Route to Water Treatment Unit, or consume in other recipes                       |
+| 惰性壤晶废液 | Inert Xircon Effluent | Reactor Crucible                   | **Yes**          | Purifier → Xircon Liquid + Clean Water; or Water Treatment Unit (less efficient) |
+| 壤晶废液     | Xircon Effluent       | Reactor Crucible                   | **Yes**          | Purifier, or route to other recipes; or Water Treatment Unit                     |
+| 沉积酸       | Acidic Sludge         | Copper refining                    | **Yes**          | Route back to copper solution recipes                                            |
+| 清水         | Clean Water           | Purifier (byproduct), Water Pump   | Useful           | Consume in recipes (e.g. Forge of the Sky)                                       |
+
+**Core rule: there is no "ignorable waste" in the game.** Every byproduct must have somewhere to go (consumed by another facility or destroyed by Water Treatment Unit), or the producing facility jams and the jam cascades upstream.
+
 ## Key Distinctions
 
 ### Items that go through the Depot (solid)

@@ -7,7 +7,11 @@ import { getItemIconUrl, getFacilityIconUrl } from '@/data'
 const props = defineProps<{
   onAddSupply: (itemId: string, position: { x: number; y: number }) => void
   onAddFacility: (facilityId: string, recipeId: string, position: { x: number; y: number }) => void
-  onAddSink: (itemId: string, position: { x: number; y: number }) => void
+  onAddSink: (
+    itemId: string,
+    position: { x: number; y: number },
+    purpose: 'demand' | 'disposal',
+  ) => void
 }>()
 
 const { t } = useI18n()
@@ -53,8 +57,8 @@ function selectRecipe(facilityId: string, recipeId: string) {
   expandedFacility.value = null
 }
 
-function selectSink(itemId: string) {
-  props.onAddSink(itemId, { x: 700, y: 300 })
+function selectSink(itemId: string, purpose: 'demand' | 'disposal') {
+  props.onAddSink(itemId, { x: 700, y: 300 }, purpose)
 }
 
 const tabs: { key: Tab; label: string }[] = [
@@ -127,7 +131,6 @@ const tabs: { key: Tab; label: string }[] = [
         v-for="item in allItems"
         :key="item.id"
         :class="{ intermediate: item.asTarget === false }"
-        @click="selectSink(item.id)"
       >
         <img :src="getItemIconUrl(item.id)" class="list-icon" />
         <span class="list-name">{{ t(`item.${item.id}`) }}</span>
@@ -135,6 +138,22 @@ const tabs: { key: Tab; label: string }[] = [
           intermediate
         </span>
         <span v-if="item.transportType === 'pipe'" class="list-badge pipe">pipe</span>
+        <div class="sink-actions">
+          <button
+            class="sink-btn demand"
+            title="Demand: I need this item"
+            @click.stop="selectSink(item.id, 'demand')"
+          >
+            D
+          </button>
+          <button
+            class="sink-btn disposal"
+            title="Disposal: must handle this byproduct"
+            @click.stop="selectSink(item.id, 'disposal')"
+          >
+            X
+          </button>
+        </div>
       </li>
     </ul>
   </aside>
@@ -262,5 +281,42 @@ const tabs: { key: Tab; label: string }[] = [
 
 .item-list li.intermediate {
   opacity: 0.7;
+}
+
+.sink-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sink-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sink-btn.demand {
+  background: #1a2a3a;
+  color: #4a9eff;
+}
+
+.sink-btn.demand:hover {
+  background: #2a3a4a;
+}
+
+.sink-btn.disposal {
+  background: #3a1a1a;
+  color: #ff8c42;
+}
+
+.sink-btn.disposal:hover {
+  background: #4a2a2a;
 }
 </style>

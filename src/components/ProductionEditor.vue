@@ -48,8 +48,12 @@ function handleAddFacility(
   nextY += 120
 }
 
-function handleAddSink(itemId: string, position: { x: number; y: number }) {
-  addSink({ itemId, rate: 5, position: { x: position.x, y: nextY } })
+function handleAddSink(
+  itemId: string,
+  position: { x: number; y: number },
+  purpose: 'demand' | 'disposal' = 'demand',
+) {
+  addSink({ itemId, rate: 5, purpose, position: { x: position.x, y: nextY } })
   nextY += 120
 }
 

@@ -60,23 +60,41 @@ Key properties:
 
 Facilities are the workhorses of the graph. Most of the interesting constraints come from their port layouts and recipe rates.
 
-### Sink (需求终点)
+### Sink (消耗终点)
 
-An item consumption endpoint. Represents "I need X/s of this item" — the production goal that the rest of the line must satisfy.
+A Sink is an item consumption endpoint — a node with no outgoing edges where items leave the production line.
 
-In the game, items leave the production line by:
+In the game, there are **two reasons** to create a Sink, and the distinction matters for the user's mental model:
 
-- PAC input ports / Depot Intake (仓库存货口) — items enter Depot via belt
-- Protocol Stash (协议储存箱) — items are wirelessly sent to Depot when powered
-- Abstract demand — "I need 6 Amethyst Components/s for building"
+#### Demand Sink (需求终点)
 
-In AICD, all of these are modeled as a Sink: a rate target that the upstream supply must meet. The Depot return mechanism is implicit — items on a belt that reach a Sink are assumed to reach the Depot.
+"I need X/s of this item" — the production goal. The user deliberately wants this item produced.
 
-### Source (假设供给)
+Examples:
 
-An abstract item source with **no port constraints**. Used for "what-if" analysis: "if I had 10 Amethyst Fiber/s, how many Fitting Units do I need?"
+- "I need 6 Amethyst Components/s for building"
+- "I need 18 HC Valley Batteries/s for the stable-18 setup"
 
-This is a **planning tool**, not a game entity. It should not be the primary way users add items to the graph — that's what Supply is for. Source exists for quick prototyping and sandbox experimentation.
+Corresponds to: PAC input ports, Depot Intake (仓库存货口), or abstract demand.
+
+#### Disposal Sink (处置终点)
+
+"This item must go somewhere or the line jams" — forced by a byproduct constraint. The user doesn't want the item; they're forced to handle it.
+
+Examples:
+
+- Sewage (污水) from Reactor Crucible — must route to Water Treatment Unit or the facility stops
+- Inert Xircon Effluent (惰性壤晶废液) — must route to Water Treatment Unit or Purifier
+
+Corresponds to: Water Treatment Unit (废水处理机, destroys items), or a facility that consumes the byproduct as input.
+
+**Key game rule: every byproduct must have somewhere to go.** If any facility output has no outgoing edge, the facility jams, and the jam cascades upstream. In AICD, this is flagged by the `unconnected_output` diagnostic.
+
+**Modeling choice: Demand and Disposal are the same Sink type with a `purpose` tag.** The graph structure and diagnostic logic are identical — both are nodes that consume items at a rate with no outgoing edges. The `purpose` field only affects:
+
+- **UI presentation**: Disposal Sinks get a distinct visual style (e.g. red/orange accent vs green) to signal "you must handle this"
+- **Default rate**: Demand Sinks have a user-specified rate (the target); Disposal Sinks default to consuming everything arriving (rate = sum of incoming edge rates)
+- **Sidebar UX**: The Sink tab should make it easy to add disposal targets for common byproducts (Sewage, Inert Xircon Effluent, etc.)
 
 ---
 
@@ -182,6 +200,16 @@ A Supply output port or facility I/O port flows at the same rate as the attached
 - **Cycles**: Valid and common in the game (seed loops, byproduct recycling). Flagged as informational, not errors.
 - **Wrong item**: An edge carries a different item than the target port expects.
 
+### Byproduct Cascade
+
+In the game, **every facility output must have somewhere to go**. If an output port has no outgoing edge:
+
+1. The facility jams (stops producing)
+2. The jam propagates upstream (facilities feeding this one also back up)
+3. This can cascade across the entire production line
+
+This is especially critical for fluid byproducts (Sewage, Xircon Effluent) — they cannot enter the Depot and must be piped directly to a consumer or disposal facility. The `unconnected_output` diagnostic and Disposal Sink type address this.
+
 ---
 
 ## What AICD Does NOT Model
@@ -200,21 +228,23 @@ These game mechanics are out of scope for a schematic balancing tool:
 ## Conceptual Flow
 
 ```
- ┌─────────┐                              ┌─────────┐
- │  Supply  │─── belt/pipe ───────────────▶│ Facility │
- │(PAC/ Depot│   rate = ports × 0.5/2.0    │(recipe) │
- │ Output/  │                              └────┬────┘
- │ Stash)   │                              ┌────▼────┐
- └─────────┘                              │ Facility │───┐
-                                          └────┬────┘   │
-                                          ┌────▼────┐   │ cycle
-                                          │ Facility │◀──┘
-                                          └────┬────┘
-                                          ┌────▼────┐
-                                          │  Sink   │ "need X/s"
-                                          └─────────┘
-
- Source ──(what-if)──▶ Facility    (no port constraints, planning tool only)
+ ┌─────────┐                              ┌──────────────┐
+ │  Supply  │─── belt/pipe ───────────────▶│   Facility   │
+ │(PAC/ Depot│   rate = ports × 0.5/2.0   │  (recipe)    │
+ │ Output/  │                              └──────┬───────┘
+ │ Stash)   │                              ┌──────▼───────┐
+ └─────────┘                              │   Facility   │───┐
+                                          └──────┬───────┘   │ cycle
+                                          ┌──────▼───────┐   │
+                                          │   Facility   │◀──┘
+                                          └──────┬───────┘
+                                                 │
+                                    ┌────────────┴────────────┐
+                                    │                         │
+                              ┌─────▼──────┐          ┌───────▼──────┐
+                              │Sink (demand)│          │Sink (disposal)│
+                              │"I want X/s" │          │"must handle" │
+                              └────────────┘          └──────────────┘
 ```
 
 ---

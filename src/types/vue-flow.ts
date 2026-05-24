@@ -41,6 +41,7 @@ export interface SinkNodeData {
   nodeType: 'sink'
   itemId: string
   rate: number
+  purpose: 'demand' | 'disposal'
 }
 
 export type AicdNodeData = SupplyNodeData | FacilityNodeData | SinkNodeData
@@ -98,7 +99,7 @@ function toFacilityData(node: FacilityNode): FacilityNodeData {
 }
 
 function toSinkData(node: SinkNode): SinkNodeData {
-  return { nodeType: 'sink', itemId: node.itemId, rate: node.rate }
+  return { nodeType: 'sink', itemId: node.itemId, rate: node.rate, purpose: node.purpose }
 }
 
 export function toVFNode(node: ProductionNode): AicdNode {

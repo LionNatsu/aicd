@@ -7,17 +7,19 @@ import { useI18n } from 'vue-i18n'
 
 const props = defineProps<NodeProps<SinkNodeData>>()
 const { t } = useI18n()
+
+const isDisposal = props.data?.purpose === 'disposal'
 </script>
 
 <template>
-  <div class="aicd-node aicd-sink">
+  <div class="aicd-node" :class="isDisposal ? 'aicd-sink-disposal' : 'aicd-sink-demand'">
     <div class="node-header">
       <img v-if="props.data?.itemId" :src="getItemIconUrl(props.data.itemId)" class="node-icon" />
       <span>{{ t(`item.${props.data?.itemId}`) }}</span>
     </div>
     <div class="node-body">
       <div class="node-field">
-        <span class="label">Rate</span>
+        <span class="label">{{ isDisposal ? 'Disposal' : 'Demand' }}</span>
         <span class="value">{{ props.data?.rate?.toFixed(1) ?? '0.0' }}/s</span>
       </div>
     </div>
@@ -26,8 +28,13 @@ const { t } = useI18n()
 </template>
 
 <style scoped>
-.aicd-sink {
-  background: #3a1a2a;
-  border: 2px solid #ff6b6b;
+.aicd-sink-demand {
+  background: #1a2a3a;
+  border: 2px solid #4a9eff;
+}
+
+.aicd-sink-disposal {
+  background: #3a1a1a;
+  border: 2px solid #ff8c42;
 }
 </style>
