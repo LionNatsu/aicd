@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, ref } from 'vue'
+import { markRaw, ref, computed } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
@@ -22,6 +22,25 @@ const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge }
   useProductionLine()
 const { nodes, edges } = useGraphAdapter(line, addEdge)
 const { t } = useI18n()
+
+// ---- Selected node for context-aware sidebar ----
+
+const selectedNodeId = ref<string | null>(null)
+
+function onNodeClick(event: NodeMouseEvent) {
+  selectedNodeId.value = event.node.id
+}
+
+function onPaneClick() {
+  contextMenu.value = null
+  selectedNodeId.value = null
+}
+
+// Pass live domain node to sidebar (reactive lookup from graph state)
+const selectedNode = computed(() => {
+  if (!selectedNodeId.value) return null
+  return line.nodes.get(selectedNodeId.value) ?? null
+})
 
 /**
  * Translate raw item IDs in diagnostic messages to i18n names.
@@ -130,10 +149,6 @@ function onEdgeContextMenu(event: EdgeMouseEvent) {
   contextMenu.value = { x: clientX, y: clientY, type: 'edge', id: event.edge.id }
 }
 
-function onPaneClick() {
-  contextMenu.value = null
-}
-
 function deleteContextTarget() {
   if (!contextMenu.value) return
   if (contextMenu.value.type === 'node') removeNode(contextMenu.value.id)
@@ -162,6 +177,7 @@ function onKeyDown(event: KeyboardEvent) {
       :on-add-supply="handleAddSupply"
       :on-add-facility="handleAddFacility"
       :on-add-sink="handleAddSink"
+      :selected-node="selectedNode"
     />
 
     <!-- Main area -->
@@ -176,6 +192,7 @@ function onKeyDown(event: KeyboardEvent) {
           fit-view-on-init
           :default-edge-options="{ type: 'flow' }"
           :connection-line-style="{ stroke: '#42b883' }"
+          @node-click="onNodeClick"
           @node-context-menu="onNodeContextMenu"
           @edge-context-menu="onEdgeContextMenu"
           @pane-click="onPaneClick"

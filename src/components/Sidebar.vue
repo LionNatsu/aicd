@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   items,
   facilities,
   getRecipesByFacility,
   getRecipesByOutput,
+  getRecipesByInput,
   getItemIconUrl,
   getFacilityIconUrl,
 } from '@/data'
 import { getRecipeLabel, getRecipeTransportHint } from '@/utils/recipe-label'
-import type { Recipe } from '@/types'
+import type { Recipe, ProductionNode } from '@/types'
 
 const props = defineProps<{
   onAddSupply: (itemId: string, position: { x: number; y: number }) => void
@@ -20,6 +21,8 @@ const props = defineProps<{
     position: { x: number; y: number },
     purpose: 'demand' | 'disposal',
   ) => void
+  /** Currently selected node on the canvas, or null. */
+  selectedNode: ProductionNode | null
 }>()
 
 const { t } = useI18n()
@@ -28,6 +31,65 @@ const { t } = useI18n()
 type Tab = 'demand' | 'recipe' | 'supply'
 const activeTab = ref<Tab>('demand')
 const search = ref('')
+
+// ---- Context-aware focus: react to selected node ----
+
+watch(
+  () => props.selectedNode,
+  (node) => {
+    if (!node) return
+
+    // Clear any manual search — we're navigating by context
+    search.value = ''
+
+    switch (node.type) {
+      case 'supply':
+        // "I'm providing this item" → show supply tab, scroll to it
+        activeTab.value = 'supply'
+        scrollToItem(node.itemId)
+        break
+      case 'facility':
+        // "I'm this machine" → show recipe tab, expand this facility
+        activeTab.value = 'recipe'
+        expandedFacility.value = node.facilityId
+        scrollToFacility(node.facilityId)
+        break
+      case 'sink':
+        if (node.purpose === 'demand') {
+          // "I need this item" → show demand tab, scroll to it
+          activeTab.value = 'demand'
+          scrollToItem(node.itemId)
+        } else {
+          // "I'm disposing this byproduct" → show recipe tab, expand machines that consume it
+          activeTab.value = 'recipe'
+          const consumers = getRecipesByInput(node.itemId)
+          if (consumers.length > 0) {
+            expandedFacility.value = consumers[0]!.facilityId
+            scrollToFacility(consumers[0]!.facilityId)
+          }
+        }
+        break
+    }
+  },
+)
+
+// ---- Scroll helpers ----
+
+function scrollToItem(itemId: string) {
+  nextTick(() => {
+    // eslint-disable-next-line no-undef
+    const el = document.getElementById(`sidebar-item-${itemId}`)
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
+}
+
+function scrollToFacility(facilityId: string) {
+  nextTick(() => {
+    // eslint-disable-next-line no-undef
+    const el = document.getElementById(`sidebar-facility-${facilityId}`)
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
+}
 
 // ---- Data: items relevant to users (no intermediate bottle clutter) ----
 
@@ -155,6 +217,28 @@ const pickerRecipes = computed((): RecipeEntry[] => {
     .filter((e): e is RecipeEntry => e !== null)
 })
 
+// ---- Highlighted item/facility (from selection) ----
+
+const highlightedItemId = computed(() => {
+  const node = props.selectedNode
+  if (!node) return null
+  if (node.type === 'supply') return node.itemId
+  if (node.type === 'sink') return node.itemId
+  return null
+})
+
+const highlightedFacilityId = computed(() => {
+  const node = props.selectedNode
+  if (!node) return null
+  if (node.type === 'facility') return node.facilityId
+  if (node.type === 'sink' && node.purpose === 'disposal') {
+    // Highlight facilities that consume this item
+    const consumers = getRecipesByInput(node.itemId)
+    return consumers.length === 1 ? consumers[0]!.facilityId : null
+  }
+  return null
+})
+
 // ---- Actions ----
 
 function selectSupply(itemId: string) {
@@ -223,7 +307,12 @@ const tabs: { key: Tab; label: string }[] = [
       <div v-for="group in demandGroups" :key="group.label" class="item-group">
         <div class="group-header">{{ group.label }}</div>
         <ul class="item-list">
-          <li v-for="item in group.items" :key="item.id">
+          <li
+            v-for="item in group.items"
+            :id="`sidebar-item-${item.id}`"
+            :key="item.id"
+            :class="{ highlighted: highlightedItemId === item.id }"
+          >
             <img :src="getItemIconUrl(item.id)" class="list-icon" />
             <span class="list-name">{{ t(`item.${item.id}`) }}</span>
             <div class="sink-actions">
@@ -237,11 +326,6 @@ const tabs: { key: Tab; label: string }[] = [
               </button>
             </div>
           </li>
-
-          <!-- Inline recipe picker for this item -->
-          <template v-if="pickerItemId === group.items[0]?.id && pickerRecipes.length">
-            <!-- ... handled below by matching pickerItemId against the item -->
-          </template>
         </ul>
       </div>
 
@@ -274,7 +358,11 @@ const tabs: { key: Tab; label: string }[] = [
     <div v-if="activeTab === 'recipe'" class="tab-content">
       <div v-for="group in facilityGroups" :key="group.facilityId" class="item-group">
         <div
-          class="group-header clickable"
+          :id="`sidebar-facility-${group.facilityId}`"
+          :class="[
+            'group-header clickable',
+            { highlighted: highlightedFacilityId === group.facilityId },
+          ]"
           @click="
             expandedFacility = expandedFacility === group.facilityId ? null : group.facilityId
           "
@@ -308,7 +396,13 @@ const tabs: { key: Tab; label: string }[] = [
       <div v-for="group in supplyGroups" :key="group.label" class="item-group">
         <div class="group-header">{{ group.label }}</div>
         <ul class="item-list">
-          <li v-for="item in group.items" :key="item.id" @click="selectSupply(item.id)">
+          <li
+            v-for="item in group.items"
+            :id="`sidebar-item-${item.id}`"
+            :key="item.id"
+            :class="{ highlighted: highlightedItemId === item.id }"
+            @click="selectSupply(item.id)"
+          >
             <img :src="getItemIconUrl(item.id)" class="list-icon" />
             <span class="list-name">{{ t(`item.${item.id}`) }}</span>
           </li>
@@ -449,6 +543,21 @@ const tabs: { key: Tab; label: string }[] = [
 .item-list li:hover {
   background: #1a2a1a;
 }
+
+/* ---- Highlighted (context-matched) items ---- */
+
+li.highlighted {
+  background: #1a2a1a;
+  outline: 1px solid #42b883;
+  outline-offset: -1px;
+}
+
+.group-header.highlighted {
+  color: #42b883;
+  background: #112211;
+}
+
+/* ---- List elements ---- */
 
 .list-icon {
   width: 20px;
