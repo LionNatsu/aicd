@@ -2,39 +2,51 @@
 
 > This document distills the game mechanics relevant to AICD into a clean conceptual model.
 > It is intentionally decoupled from implementation — the goal is to get the abstractions right.
+> For CN/EN terminology, see [docs/terminology.md](docs/terminology.md).
+
+## Core Insight
+
+**AICD draws edges on conveyor belts and pipes, not in Depot storage.**
+
+The graph models material flows on transport lines — what goes onto a belt or into a pipe, where it goes, and at what rate. Anything that happens wirelessly or inside Depot storage is outside the graph.
+
+This has a crucial implication: miners do not appear as nodes in the graph. Miners send ore to the Depot wirelessly (no belt, no pipe, no edge). The ore re-enters the graph only when a Supply node pulls it from the Depot onto a belt.
 
 ## Core Abstraction
 
 AICD models a production line as a **directed graph** of nodes and edges.
 
-- **Nodes** are production entities that consume and/or produce items.
-- **Edges** are material flows carrying a specific item at a specific rate between nodes.
-- The graph is **schematic**, not spatial — it captures what connects to what and at what rate, not where things are physically placed.
+- **Nodes** are entities that put items onto or take items off transport lines.
+- **Edges** are physical material flows on conveyor belts or pipes between nodes.
+- The graph is **schematic**, not spatial — it captures what connects to what and at what rate, not where things are placed.
 
 ---
 
 ## Node Types
 
-### PAC (Protocol Automation Core)
+### Supply (物品入口)
 
-The PAC is the source of all items entering a production chain. It pulls items from the shared Depot and outputs them through **finite, configurable ports**.
+A Supply node pulls items from the Depot and puts them onto a transport line. It is the **only way solid items enter the graph**.
+
+This concept unifies three game entities that do the same thing — take items from Depot and output them onto belts/pipes:
+
+| Game entity     | CN           | Ports                    | Notes                                               |
+| --------------- | ------------ | ------------------------ | --------------------------------------------------- |
+| PAC output port | PAC 输出端口 | 6 built-in               | The baseline; primary throughput bottleneck         |
+| Depot Output    | 仓库取货口   | Extensible via Depot Bus | Expand beyond PAC's 6-port limit                    |
+| Protocol Stash  | 协议储存箱   | 6 item slots             | Wireless Depot access; also acts as overflow buffer |
 
 Key properties:
 
-- Has a fixed maximum number of output ports (the game's primary throughput ceiling)
+- **Finite output ports** — the primary throughput constraint in the game
 - Each port is configured to output one specific item
 - Per-port rate is determined by transport type (belt: 0.5/s, pipe: 2.0/s)
-- Multiple PACs in the same region share a Depot
+- Total output rate = `portCount × perPortRate`
+- A Supply node may also output fluids (e.g., Fluid Pump) — fluids bypass Depot and go directly to pipes
 
-This is the most common way items enter a production line. The PAC's finite ports make it the key bottleneck to plan around.
+**Why unify PAC / Depot Output / Protocol Stash?** Because in the graph they play the identical role: "take an item from storage and put it on a transport line." The differences (built-in vs extensible ports, wireless vs bus-attached) are parameter variations, not role differences.
 
-### Source (External Supply)
-
-An abstract item source with no port constraints. Used for "what-if" analysis: "if I had 10 Amethyst Fiber/s coming in, how many Fitting Units do I need?"
-
-Not tied to a specific game entity. A scratchpad concept for planning without committing to a specific PAC configuration.
-
-### Facility (Processing Building)
+### Facility (加工设施)
 
 A building that runs a recipe, consuming inputs and producing outputs at rates determined by the recipe's crafting time.
 
@@ -48,11 +60,65 @@ Key properties:
 
 Facilities are the workhorses of the graph. Most of the interesting constraints come from their port layouts and recipe rates.
 
-### Sink (Demand Target)
+### Sink (需求终点)
 
 An item consumption endpoint. Represents "I need X/s of this item" — the production goal that the rest of the line must satisfy.
 
-Like Source, this is an abstract role rather than a specific game entity. In practice it may correspond to a Depot intake, Protocol Stash, or an end-product demand target.
+In the game, items leave the production line by:
+
+- PAC input ports / Depot Intake (仓库存货口) — items enter Depot via belt
+- Protocol Stash (协议储存箱) — items are wirelessly sent to Depot when powered
+- Abstract demand — "I need 6 Amethyst Components/s for building"
+
+In AICD, all of these are modeled as a Sink: a rate target that the upstream supply must meet. The Depot return mechanism is implicit — items on a belt that reach a Sink are assumed to reach the Depot.
+
+### Source (假设供给)
+
+An abstract item source with **no port constraints**. Used for "what-if" analysis: "if I had 10 Amethyst Fiber/s, how many Fitting Units do I need?"
+
+This is a **planning tool**, not a game entity. It should not be the primary way users add items to the graph — that's what Supply is for. Source exists for quick prototyping and sandbox experimentation.
+
+---
+
+## What About Miners?
+
+Miners (Portable Originium Rig, Electric Mining Rig, etc.) produce raw resources and **wirelessly deposit them into the Depot**. Because:
+
+- Miner → Depot is wireless (no belt, no pipe)
+- No edge exists on the transport layer
+- The ore re-enters the graph only when a Supply node pulls it out
+
+Therefore, **miners are not nodes in the graph**. Their effect is modeled as a Depot supply rate — "how fast is this ore entering the Depot?" — which constrains how fast Supply nodes can output that ore. This can be tracked as a Depot inventory readout, not a graph element.
+
+The one exception is the **Hydro Mining Rig** (水力采矿钻机), which produces Cuprium Ore + Sewage. Since Sewage cannot go into the Depot, the Hydro Mining Rig does produce a pipe-level output (Sewage) that must be routed. In this case, it can be modeled as a Facility with 0 solid inputs and 2 outputs (one solid to Depot, one fluid to pipe).
+
+---
+
+## Two Logistics Systems
+
+The game has two parallel logistics systems with fundamentally different routing:
+
+### Solid items (belt-routed, Depot-mediated)
+
+```
+Miner ──(wireless)──▶ Depot ──(Supply node)──▶ Belt ──▶ Facility ──▶ Belt ──▶ Facility ──▶ ... ──▶ Sink
+                       ▲                                                                    │
+                       └───────────────(Depot Intake / Protocol Stash)──────────────────────┘
+```
+
+All solid items pass through the Depot. The Supply node is the only way to get them onto a belt.
+
+### Fluid items (pipe-routed, no Depot)
+
+```
+Fluid Pump ──▶ Pipe ──▶ Facility ──▶ Pipe ──▶ Facility ──▶ ... ──▶ Sink
+                  │
+                  └──▶ Fluid Tank (storage, not Depot)
+```
+
+Fluids never enter the Depot. They are piped directly between facilities or stored in Fluid Tanks. The Supply node for fluids corresponds to a Fluid Pump, not a PAC port.
+
+**This distinction is important for rate calculation and constraint checking** — a belt-routed Supply is Depot-constrained (how much is in the Depot?), while a pipe-routed Supply is production-constrained (how fast is the pump producing?).
 
 ---
 
@@ -73,17 +139,17 @@ Key properties:
 
 These are hard simulation constants in the game, not user-configurable:
 
-| Transport | Rate per line |
-| --------- | ------------- |
-| Belt      | 0.5 /s        |
-| Pipe      | 2.0 /s        |
-| Conduit   | 1.5 /s        |
+| Transport | Rate per line | Notes                        |
+| --------- | ------------- | ---------------------------- |
+| Belt      | 0.5 /s        | 1 item every 2 seconds       |
+| Pipe      | 2.0 /s        | Standard above-ground pipe   |
+| Conduit   | 1.5 /s        | Underground pipe; 25% slower |
 
-Conduits are underground pipes — 25% slower than standard pipes. The game requires standard pipes for high-demand facilities (e.g., Forge of the Sky at 2.0/s).
+Important: Forge of the Sky requires the full 2.0/s from standard pipes. Using Conduits (1.5/s) starves it.
 
 ### Port Rate
 
-A PAC output port flows at 0.5/s (identical to belt speed). This is because a port is effectively a belt connection point. Facility I/O ports follow the same per-port rate limit determined by their buffer's transport type.
+A Supply output port or facility I/O port flows at the same rate as the attached transport line. This is because a port IS a belt/pipe connection point — the per-port rate equals the transport rate.
 
 ---
 
@@ -93,13 +159,17 @@ A PAC output port flows at 0.5/s (identical to belt speed). This is because a po
 
 - **Unconnected output**: A facility recipe output with no outgoing edge will cause the facility to jam in-game.
 - **Port oversubscription**: More recipe items than available buffer ports of the matching transport type.
-- **PAC port limit**: Total configured PAC output ports exceed the PAC's maximum.
+- **Supply port limit**: Total configured Supply output ports exceed the Supply node's maximum.
 
 ### Rate Balancing
 
 - **Underproduction**: Input edges deliver less than the facility's recipe requires.
-- **Overproduction**: A source/PAC port outputs more than downstream edges carry (material backs up).
+- **Overproduction**: A Supply port outputs more than downstream edges carry (material backs up).
 - **Transport bottleneck**: A single belt (0.5/s) feeding a facility that needs > 0.5/s — flag that parallel lines are needed.
+
+### Depot Supply Constraint
+
+- **Depot depletion**: If the total output rate of Supply nodes for a given item exceeds the Depot input rate (from miners, etc.), the Depot will eventually empty. This is a sustainability warning.
 
 ### Placement Constraints
 
@@ -122,39 +192,38 @@ These game mechanics are out of scope for a schematic balancing tool:
 - **Power grid**: Thermal Banks, Relay Towers, Pylons, cable wiring — instead, AICD shows a power budget summary (total draw → recommended Thermal Bank count by fuel type)
 - **Real-time simulation**: AICD computes steady-state rates, not time-dependent behavior
 - **Combat**: Gun towers, sentries, etc. are not production facilities
+- **Miner→Depot wireless transfer**: This happens outside the transport layer; tracked as a Depot supply rate, not graph edges
+- **Depot Bus routing**: Whether items go through PAC ports or Depot Bus ports is a parameter of the Supply node, not a separate graph element
 
 ---
 
 ## Conceptual Flow
 
 ```
-                    ┌──────────┐
-                    │   PAC    │ finite output ports, each at 0.5/s (belt) or 2.0/s (pipe)
-                    └────┬─────┘
-                         │
-                    ┌────▼─────┐
-                    │ Facility │ recipe-driven I/O, multiple instances scale throughput
-                    └────┬─────┘
-                    ┌────▼─────┐
-                    │ Facility │ byproducts must be consumed or disposed of
-                    └────┬─────┘
-                         │
-                    ┌────▼─────┐
-                    │   Sink   │ "I need X/s of this item"
-                    └──────────┘
+ ┌─────────┐                              ┌─────────┐
+ │  Supply  │─── belt/pipe ───────────────▶│ Facility │
+ │(PAC/ Depot│   rate = ports × 0.5/2.0    │(recipe) │
+ │ Output/  │                              └────┬────┘
+ │ Stash)   │                              ┌────▼────┐
+ └─────────┘                              │ Facility │───┐
+                                          └────┬────┘   │
+                                          ┌────▼────┐   │ cycle
+                                          │ Facility │◀──┘
+                                          └────┬────┘
+                                          ┌────▼────┐
+                                          │  Sink   │ "need X/s"
+                                          └─────────┘
 
-  Source ──(what-if supply)──▶ Facility  (abstract, no port constraints)
+ Source ──(what-if)──▶ Facility    (no port constraints, planning tool only)
 ```
 
 ---
 
 ## Modeling Priorities
 
-When implementing features, follow this priority order:
-
-1. **Transport rate accuracy** — rates must be derived from fixed constants, not user-typed. This is the foundation of correct balancing.
-2. **PAC as a node type** — it is the primary throughput bottleneck in the game and the most common entry point for items.
-3. **Mining facilities** — they are the game's raw material sources and should be in the facility catalog.
-4. **Unconnected output diagnostics** — byproduct handling is critical for avoiding jams.
-5. **Power budget summary** — helpful but secondary; can be a readout panel.
-6. **Region/placement constraints** — the data model is ready; UI enforcement can come later.
+1. **Supply node** — replace current Source with a Depot-output model (finite ports, auto-calculated rate). This is the most impactful change; it correctly models the game's primary bottleneck.
+2. **Transport rate accuracy** — rates derived from fixed constants (belt/pipe/conduit) × parallel count, not user-typed. Foundation of correct balancing.
+3. **Unconnected output diagnostics** — byproduct handling is critical for avoiding jams.
+4. **Mining data in catalog** — miners as facilities (0 inputs) for completeness, even though they don't appear as graph nodes.
+5. **Power budget summary** — total draw → recommended Thermal Banks. Helpful but secondary.
+6. **Region/placement constraints** — data model is ready; UI enforcement comes later.
