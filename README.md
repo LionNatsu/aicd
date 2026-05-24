@@ -16,15 +16,42 @@ A production-line visual editor and balancing tool for the AIC (Automated Indust
 git clone https://github.com/LionNatsu/aicd.git
 cd aicd
 bun install
+bun run prebuild   # download game data + images from aicd-data
 bun run dev
 ```
 
-**Prerequisites:** [Bun](https://bun.sh/)
+**Prerequisites:** [Bun](https://bun.sh/), Git
+
+> `bun run prebuild` is required before first build. It downloads game data and images from [LionNatsu/aicd-data](https://github.com/LionNatsu/aicd-data) into the project. CI runs it automatically; locally run it once after cloning.
 
 ## Tech Stack
 
 - Vue 3 + TypeScript + Vite
 - Bun (package manager & runtime)
+
+## Data Architecture
+
+Game data lives in a separate repository: [LionNatsu/aicd-data](https://github.com/LionNatsu/aicd-data). This keeps the AICD codebase decoupled from game content — when game data updates, only `aicd-data` needs to change.
+
+```
+aicd-data repo                    AICD repo (this repo)
+├── data/                         ├── src/data/
+│   ├── items.json       ──────▶ │   ├── items.json    (prebuild download)
+│   ├── recipes.json     ──────▶ │   ├── recipes.json  (prebuild download)
+│   └── facilities.json  ──────▶ │   └── facilities.json (prebuild download)
+├── i18n/                         ├── src/i18n/zh-Hans/
+│   └── zh-Hans/        ──────▶ │   ├── item.json     (prebuild download)
+│       ├── item.json            │   └── facility.json (prebuild download)
+│       └── facility.json        │
+└── images/                       └── public/images/
+    ├── items/          ──────▶      ├── items/        (prebuild download)
+    └── facilities/     ──────▶      └── facilities/   (prebuild download)
+```
+
+- **Single source of truth**: all game data is maintained in `aicd-data` only. AICD never hand-writes data files.
+- **prebuild**: `bun run prebuild` clones `aicd-data` shallowly and copies data/i18n/images into the project. Downloaded files are gitignored.
+- **repository_dispatch**: `aicd-data` pushes trigger AICD CI to rebuild automatically.
+- **JSON import**: `src/data/index.ts` imports the downloaded JSON directly and casts `category` numbers to the `FacilityCategory` enum.
 
 ## Credits
 
