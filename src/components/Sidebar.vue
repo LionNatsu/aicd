@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { items, facilities, getRecipesByFacility } from '@/data'
-import { getItemIconUrl, getFacilityIconUrl } from '@/data'
+import { items, facilities, getRecipesByFacility, getItemIconUrl, getFacilityIconUrl } from '@/data'
+import { getRecipeLabel, getRecipeTransportHint } from '@/utils/recipe-label'
 
 const props = defineProps<{
   onAddSupply: (itemId: string, position: { x: number; y: number }) => void
@@ -30,23 +30,62 @@ const allItems = computed(() => {
   })
 })
 
-// Facilities with their recipes
-const facilityList = computed(() => {
-  const q = search.value.toLowerCase()
-  return facilities
-    .map((f) => ({
-      id: f.id,
-      name: t(`facility.${f.id}`),
-      recipes: getRecipesByFacility(f.id),
-    }))
-    .filter((f) => {
-      if (!q) return true
-      return f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q)
-    })
-})
+// Recipe-first facility list: flat list of recipes, each with its facility info
+interface RecipeEntry {
+  recipeId: string
+  facilityId: string
+  facilityName: string
+  label: string
+  shortLabel: string
+  transportHint: 'pipe' | 'belt' | 'mixed'
+}
 
-// Expanded facility (showing recipe list)
-const expandedFacility = ref<string | null>(null)
+const recipeList = computed(() => {
+  const q = search.value.toLowerCase()
+  const entries: RecipeEntry[] = []
+
+  for (const facility of facilities) {
+    const facilityName = t(`facility.${facility.id}`)
+    const facRecipes = getRecipesByFacility(facility.id)
+
+    for (const recipe of facRecipes) {
+      const label = getRecipeLabel(recipe.id, t)
+      if (!label) continue
+
+      const entry: RecipeEntry = {
+        recipeId: recipe.id,
+        facilityId: facility.id,
+        facilityName,
+        label: label.full,
+        shortLabel: label.short,
+        transportHint: getRecipeTransportHint(recipe.id),
+      }
+
+      // Filter: match against recipe label, facility name, input/output item names, or raw IDs
+      if (!q) {
+        entries.push(entry)
+        continue
+      }
+
+      const searchable = [
+        entry.label,
+        entry.facilityName,
+        recipe.id,
+        facility.id,
+        ...label.inputNames,
+        ...label.outputNames,
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      if (searchable.includes(q)) {
+        entries.push(entry)
+      }
+    }
+  }
+
+  return entries
+})
 
 function selectSupply(itemId: string) {
   props.onAddSupply(itemId, { x: 100, y: 300 })
@@ -54,7 +93,6 @@ function selectSupply(itemId: string) {
 
 function selectRecipe(facilityId: string, recipeId: string) {
   props.onAddFacility(facilityId, recipeId, { x: 400, y: 300 })
-  expandedFacility.value = null
 }
 
 function selectSink(itemId: string, purpose: 'demand' | 'disposal') {
@@ -102,27 +140,22 @@ const tabs: { key: Tab; label: string }[] = [
       </li>
     </ul>
 
-    <!-- Facility tab -->
+    <!-- Facility tab (recipe-first) -->
     <ul v-if="activeTab === 'facility'" class="item-list">
       <li
-        v-for="fac in facilityList"
-        :key="fac.id"
-        @click="expandedFacility = expandedFacility === fac.id ? null : fac.id"
+        v-for="entry in recipeList"
+        :key="entry.recipeId"
+        class="recipe-entry"
+        @click="selectRecipe(entry.facilityId, entry.recipeId)"
       >
-        <img :src="getFacilityIconUrl(fac.id)" class="list-icon" />
-        <span class="list-name">{{ fac.name }}</span>
+        <img :src="getFacilityIconUrl(entry.facilityId)" class="list-icon" />
+        <div class="recipe-info">
+          <span class="recipe-label">{{ entry.shortLabel }}</span>
+          <span class="recipe-facility">{{ entry.facilityName }}</span>
+        </div>
+        <span v-if="entry.transportHint === 'pipe'" class="list-badge pipe">pipe</span>
+        <span v-else-if="entry.transportHint === 'mixed'" class="list-badge mixed">mixed</span>
       </li>
-      <!-- Recipe sub-list -->
-      <template v-if="expandedFacility">
-        <li
-          v-for="recipe in facilityList.find((f) => f.id === expandedFacility)?.recipes ?? []"
-          :key="recipe.id"
-          class="recipe-item"
-          @click="selectRecipe(expandedFacility!, recipe.id)"
-        >
-          <span class="list-name">{{ recipe.id }}</span>
-        </li>
-      </template>
     </ul>
 
     <!-- Sink tab -->
@@ -237,14 +270,28 @@ const tabs: { key: Tab; label: string }[] = [
   background: #1a2a1a;
 }
 
-.recipe-item {
-  padding-left: 28px !important;
-  font-size: 11px !important;
-  color: #aaa;
+.recipe-entry {
+  gap: 6px !important;
 }
 
-.recipe-item:hover {
-  color: #ededed !important;
+.recipe-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.recipe-label {
+  font-size: 12px;
+  color: #ededed;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipe-facility {
+  font-size: 10px;
+  color: #888;
 }
 
 .list-icon {
@@ -267,11 +314,17 @@ const tabs: { key: Tab; label: string }[] = [
   border-radius: 3px;
   font-weight: 600;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .list-badge.pipe {
   background: #1a2a3a;
   color: #4a9eff;
+}
+
+.list-badge.mixed {
+  background: #2a1a2a;
+  color: #b070d0;
 }
 
 .list-badge.intermediate-badge {
