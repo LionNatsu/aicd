@@ -183,7 +183,7 @@ function onKeyDown(event: KeyboardEvent) {
     <!-- Main area -->
     <div class="main-area" @keydown="onKeyDown">
       <!-- Canvas -->
-      <main class="canvas-container" @click="onPaneClick">
+      <main class="canvas-container">
         <VueFlow
           :nodes="nodes"
           :edges="edges"
