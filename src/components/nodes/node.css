@@ -1,0 +1,48 @@
+/* Shared styles for AICD custom nodes */
+
+.aicd-node {
+  min-width: 160px;
+  border-radius: 8px;
+  padding: 0;
+  font-size: 12px;
+  color: #ededed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  overflow: visible;
+}
+
+.node-header {
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 6px 6px 0 0;
+  opacity: 0.8;
+}
+
+.node-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.node-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.node-field .label {
+  color: #888;
+  font-size: 11px;
+}
+
+.node-field .value {
+  font-size: 11px;
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}
