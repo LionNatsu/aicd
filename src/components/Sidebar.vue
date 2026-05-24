@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { items, facilities, getRecipesByFacility, getItemIconUrl, getFacilityIconUrl } from '@/data'
+import {
+  items,
+  facilities,
+  getRecipesByFacility,
+  getRecipesByOutput,
+  getItemIconUrl,
+  getFacilityIconUrl,
+} from '@/data'
 import { getRecipeLabel, getRecipeTransportHint } from '@/utils/recipe-label'
+import type { Recipe } from '@/types'
 
 const props = defineProps<{
   onAddSupply: (itemId: string, position: { x: number; y: number }) => void
@@ -38,34 +46,26 @@ const relevantItems = computed(() => {
 /** Group items by category for structured display. */
 interface ItemGroup {
   label: string
-  items: typeof items
+  items: (typeof items)[0][]
 }
 
 const supplyGroups = computed((): ItemGroup[] => {
-  const groups: { key: string; label: string; test: (i: (typeof items)[0]) => boolean }[] = [
-    { key: 'solid', label: '固体', test: (i) => i.transportType !== 'pipe' },
-    { key: 'fluid', label: '流体', test: (i) => i.transportType === 'pipe' },
+  const groups: { label: string; test: (i: (typeof items)[0]) => boolean }[] = [
+    { label: '固体', test: (i) => i.transportType !== 'pipe' },
+    { label: '流体', test: (i) => i.transportType === 'pipe' },
   ]
-
   return groups
-    .map((g) => ({
-      label: g.label,
-      items: relevantItems.value.filter(g.test),
-    }))
+    .map((g) => ({ label: g.label, items: relevantItems.value.filter(g.test) }))
     .filter((g) => g.items.length > 0)
 })
 
 const demandGroups = computed((): ItemGroup[] => {
-  const groups: { key: string; label: string; test: (i: (typeof items)[0]) => boolean }[] = [
-    { key: 'solid', label: '固体', test: (i) => i.transportType !== 'pipe' },
-    { key: 'fluid', label: '流体', test: (i) => i.transportType === 'pipe' },
+  const groups: { label: string; test: (i: (typeof items)[0]) => boolean }[] = [
+    { label: '固体', test: (i) => i.transportType !== 'pipe' },
+    { label: '流体', test: (i) => i.transportType === 'pipe' },
   ]
-
   return groups
-    .map((g) => ({
-      label: g.label,
-      items: relevantItems.value.filter(g.test),
-    }))
+    .map((g) => ({ label: g.label, items: relevantItems.value.filter(g.test) }))
     .filter((g) => g.items.length > 0)
 })
 
@@ -86,6 +86,19 @@ interface FacilityGroup {
   recipes: RecipeEntry[]
 }
 
+function buildRecipeEntry(recipe: Recipe): RecipeEntry | null {
+  const label = getRecipeLabel(recipe.id, t)
+  if (!label) return null
+  return {
+    recipeId: recipe.id,
+    facilityId: recipe.facilityId,
+    facilityName: t(`facility.${recipe.facilityId}`),
+    label: label.full,
+    shortLabel: label.short,
+    transportHint: getRecipeTransportHint(recipe.id),
+  }
+}
+
 const facilityGroups = computed((): FacilityGroup[] => {
   const q = search.value.toLowerCase()
   const groups: FacilityGroup[] = []
@@ -96,30 +109,22 @@ const facilityGroups = computed((): FacilityGroup[] => {
 
     const matchedRecipes: RecipeEntry[] = []
     for (const recipe of facRecipes) {
-      const label = getRecipeLabel(recipe.id, t)
-      if (!label) continue
-
-      const entry: RecipeEntry = {
-        recipeId: recipe.id,
-        facilityId: facility.id,
-        facilityName,
-        label: label.full,
-        shortLabel: label.short,
-        transportHint: getRecipeTransportHint(recipe.id),
-      }
+      const entry = buildRecipeEntry(recipe)
+      if (!entry) continue
 
       if (!q) {
         matchedRecipes.push(entry)
         continue
       }
 
+      const label = getRecipeLabel(recipe.id, t)
       const searchable = [
         entry.label,
         entry.facilityName,
         recipe.id,
         facility.id,
-        ...label.inputNames,
-        ...label.outputNames,
+        ...(label?.inputNames ?? []),
+        ...(label?.outputNames ?? []),
       ]
         .join(' ')
         .toLowerCase()
@@ -130,11 +135,7 @@ const facilityGroups = computed((): FacilityGroup[] => {
     }
 
     if (matchedRecipes.length > 0) {
-      groups.push({
-        facilityId: facility.id,
-        facilityName,
-        recipes: matchedRecipes,
-      })
+      groups.push({ facilityId: facility.id, facilityName, recipes: matchedRecipes })
     }
   }
 
@@ -143,6 +144,16 @@ const facilityGroups = computed((): FacilityGroup[] => {
 
 // ---- Expanded facility in recipe tab ----
 const expandedFacility = ref<string | null>(null)
+
+// ---- Inline recipe picker in demand tab ----
+const pickerItemId = ref<string | null>(null)
+
+const pickerRecipes = computed((): RecipeEntry[] => {
+  if (!pickerItemId.value) return []
+  return getRecipesByOutput(pickerItemId.value)
+    .map((r) => buildRecipeEntry(r))
+    .filter((e): e is RecipeEntry => e !== null)
+})
 
 // ---- Actions ----
 
@@ -154,8 +165,31 @@ function selectRecipe(facilityId: string, recipeId: string) {
   props.onAddFacility(facilityId, recipeId, { x: 400, y: 300 })
 }
 
-function selectSink(itemId: string, purpose: 'demand' | 'disposal') {
-  props.onAddSink(itemId, { x: 700, y: 300 }, purpose)
+function addDemandSink(itemId: string) {
+  // Add the sink
+  props.onAddSink(itemId, { x: 700, y: 300 }, 'demand')
+
+  // Then show inline recipe picker: "how is this item produced?"
+  const recipes = getRecipesByOutput(itemId)
+
+  if (recipes.length === 1) {
+    // Auto-select: only one recipe makes this item → add facility directly
+    const recipe = recipes[0]!
+    selectRecipe(recipe.facilityId, recipe.id)
+  } else if (recipes.length > 1) {
+    // Multiple recipes: show inline picker
+    pickerItemId.value = itemId
+  }
+  // If no recipes (raw resource), user needs to add Supply manually
+}
+
+function addDisposalSink(itemId: string) {
+  props.onAddSink(itemId, { x: 700, y: 300 }, 'disposal')
+}
+
+function pickRecipe(entry: RecipeEntry) {
+  selectRecipe(entry.facilityId, entry.recipeId)
+  pickerItemId.value = null
 }
 
 const tabs: { key: Tab; label: string }[] = [
@@ -183,7 +217,7 @@ const tabs: { key: Tab; label: string }[] = [
     <input v-model="search" class="search" placeholder="搜索..." />
 
     <!-- ════════════════════════════════════════════ -->
-    <!-- Demand tab: "我要什么" → add Sink (demand/disposal) -->
+    <!-- Demand tab: "我要什么" → add Sink + auto-chain -->
     <!-- ════════════════════════════════════════════ -->
     <div v-if="activeTab === 'demand'" class="tab-content">
       <div v-for="group in demandGroups" :key="group.label" class="item-group">
@@ -193,21 +227,41 @@ const tabs: { key: Tab; label: string }[] = [
             <img :src="getItemIconUrl(item.id)" class="list-icon" />
             <span class="list-name">{{ t(`item.${item.id}`) }}</span>
             <div class="sink-actions">
-              <button
-                class="sink-btn demand"
-                title="需求：我需要这个物品"
-                @click="selectSink(item.id, 'demand')"
-              >
-                需
-              </button>
+              <button class="sink-btn demand" @click="addDemandSink(item.id)">需</button>
               <button
                 v-if="item.transportType === 'pipe'"
                 class="sink-btn disposal"
-                title="处置：必须处理这个副产物"
-                @click="selectSink(item.id, 'disposal')"
+                @click="addDisposalSink(item.id)"
               >
                 排
               </button>
+            </div>
+          </li>
+
+          <!-- Inline recipe picker for this item -->
+          <template v-if="pickerItemId === group.items[0]?.id && pickerRecipes.length">
+            <!-- ... handled below by matching pickerItemId against the item -->
+          </template>
+        </ul>
+      </div>
+
+      <!-- Inline recipe picker overlay -->
+      <div v-if="pickerItemId && pickerRecipes.length > 0" class="picker-overlay">
+        <div class="picker-header">
+          <span>生产「{{ t(`item.${pickerItemId}`) }}」的配方</span>
+          <button class="picker-close" @click="pickerItemId = null">×</button>
+        </div>
+        <ul class="item-list">
+          <li
+            v-for="entry in pickerRecipes"
+            :key="entry.recipeId"
+            class="recipe-entry"
+            @click="pickRecipe(entry)"
+          >
+            <img :src="getFacilityIconUrl(entry.facilityId)" class="list-icon" />
+            <div class="recipe-info">
+              <span class="recipe-label">{{ entry.shortLabel }}</span>
+              <span class="recipe-facility">{{ entry.facilityName }}</span>
             </div>
           </li>
         </ul>
@@ -450,6 +504,11 @@ const tabs: { key: Tab; label: string }[] = [
   white-space: nowrap;
 }
 
+.recipe-facility {
+  font-size: 10px;
+  color: #888;
+}
+
 /* ---- Sink actions ---- */
 
 .sink-actions {
@@ -488,5 +547,38 @@ const tabs: { key: Tab; label: string }[] = [
 
 .sink-btn.disposal:hover {
   background: #4a2a2a;
+}
+
+/* ---- Inline recipe picker ---- */
+
+.picker-overlay {
+  position: sticky;
+  bottom: 0;
+  background: #181818;
+  border-top: 1px solid #42b883;
+  padding: 4px 0;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #42b883;
+  font-weight: 600;
+}
+
+.picker-close {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.picker-close:hover {
+  color: #ededed;
 }
 </style>

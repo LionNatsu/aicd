@@ -44,6 +44,16 @@ export function getRecipesByFacility(facilityId: string): Recipe[] {
   return recipes.filter((r) => r.facilityId === facilityId)
 }
 
+/** Find all recipes that produce a given item as output. */
+export function getRecipesByOutput(itemId: string): Recipe[] {
+  return recipes.filter((r) => r.outputs.some((o) => o.itemId === itemId))
+}
+
+/** Find all recipes that consume a given item as input. */
+export function getRecipesByInput(itemId: string): Recipe[] {
+  return recipes.filter((r) => r.inputs.some((i) => i.itemId === itemId))
+}
+
 // ---------------------------------------------------------------------------
 // Icon URLs (derived from ID convention)
 // ---------------------------------------------------------------------------
