@@ -20,7 +20,7 @@ import { resolvePorts } from '@/utils/port-resolver'
 
 const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge } =
   useProductionLine()
-const { nodes, edges, pendingConnection } = useGraphAdapter(line)
+const { nodes, edges } = useGraphAdapter(line, addEdge)
 const { t } = useI18n()
 
 /**
@@ -176,14 +176,6 @@ function onKeyDown(event: KeyboardEvent) {
           fit-view-on-init
           :default-edge-options="{ type: 'flow' }"
           :connection-line-style="{ stroke: '#42b883' }"
-          @connect="
-            () => {
-              if (pendingConnection) {
-                addEdge(pendingConnection)
-                pendingConnection = null
-              }
-            }
-          "
           @node-context-menu="onNodeContextMenu"
           @edge-context-menu="onEdgeContextMenu"
           @pane-click="onPaneClick"

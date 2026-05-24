@@ -11,10 +11,13 @@ import type { ProductionLineState } from './useProductionLine'
  * Bridges useProductionLine state ↔ Vue Flow's reactive node/edge model.
  *
  * - Syncs domain nodes/edges to Vue Flow arrays
- * - Handles user connections (drag-to-connect) → pending connection for editor
+ * - Handles user connections (drag-to-connect) directly into the domain
  * - Syncs node position changes back to domain model
  */
-export function useGraphAdapter(line: ProductionLineState) {
+export function useGraphAdapter(
+  line: ProductionLineState,
+  addEdge: (patch: Omit<import('@/types').FlowEdge, 'id'>) => string,
+) {
   const { onConnect, onNodesChange } = useVueFlow()
 
   const nodes = ref<AicdNode[]>([])
@@ -37,6 +40,7 @@ export function useGraphAdapter(line: ProductionLineState) {
   // ---- Vue Flow → Domain ----
 
   // Handle new connections from drag-to-connect
+  // Process synchronously — no pending/ref round-trip
   onConnect((connection: Connection) => {
     const srcHandle = connection.sourceHandle ? parseHandleId(connection.sourceHandle) : null
 
@@ -71,7 +75,7 @@ export function useGraphAdapter(line: ProductionLineState) {
     const sourceHandle = connection.sourceHandle ?? 'out-0-0'
     const targetHandle = connection.targetHandle ?? 'in-0-0'
 
-    pendingConnection.value = {
+    addEdge({
       sourceId: connection.source,
       sourceHandle,
       targetId: connection.target,
@@ -79,19 +83,8 @@ export function useGraphAdapter(line: ProductionLineState) {
       itemId,
       parallelCount: 1,
       transportType,
-    }
+    })
   })
-
-  /** Pending connection from a user drag-to-connect action. */
-  const pendingConnection = ref<{
-    sourceId: string
-    sourceHandle: string
-    targetId: string
-    targetHandle: string
-    itemId: string
-    parallelCount: number
-    transportType: TransportType
-  } | null>(null)
 
   // Sync node position changes back to domain model
   onNodesChange((changes) => {
@@ -108,7 +101,6 @@ export function useGraphAdapter(line: ProductionLineState) {
   return {
     nodes,
     edges,
-    pendingConnection,
     syncToVF,
   }
 }
