@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  repository_dispatch:
+    types: [aicd-data-updated]
 
 permissions:
   contents: read
@@ -23,6 +25,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install --frozen-lockfile
+
+      - run: bun run prebuild
 
       - run: bun run build
 

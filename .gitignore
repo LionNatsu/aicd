@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Game assets (downloaded via prebuild)
+public/images/
+
 # Build output
 dist/
 *.tsbuildinfo
