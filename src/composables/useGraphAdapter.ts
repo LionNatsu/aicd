@@ -3,6 +3,8 @@ import type { Connection } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
 import type { AicdNode, AicdEdge, FlowEdgeData, TransportType } from '@/types'
 import { toVFNode, toVFEdge, parseHandleId } from '@/types'
+import { getFacility, getRecipe, getItem } from '@/data'
+import { resolvePorts } from '@/utils/port-resolver'
 import type { ProductionLineState } from './useProductionLine'
 
 /**
@@ -38,18 +40,46 @@ export function useGraphAdapter(line: ProductionLineState) {
   onConnect((connection: Connection) => {
     const srcHandle = connection.sourceHandle ? parseHandleId(connection.sourceHandle) : null
     const tgtHandle = connection.targetHandle ? parseHandleId(connection.targetHandle) : null
+    const srcPortIndex = srcHandle?.portIndex ?? 0
+    const tgtPortIndex = tgtHandle?.portIndex ?? 0
+
+    // Auto-infer itemId from source node's output port
+    const srcNode = line.nodes.get(connection.source)
+    let itemId = ''
+    let transportType: TransportType = 'belt'
+
+    if (srcNode) {
+      if (srcNode.type === 'source') {
+        itemId = srcNode.itemId
+        const item = getItem(itemId)
+        transportType = item?.transportType ?? 'belt'
+      } else if (srcNode.type === 'facility') {
+        // Look up which item is on this output port
+        const facility = getFacility(srcNode.facilityId)
+        const recipe = getRecipe(srcNode.recipeId)
+        if (facility && recipe) {
+          const ports = resolvePorts(facility, recipe)
+          const port = ports.outputs.find((p) => p.index === srcPortIndex)
+          if (port?.itemId) {
+            itemId = port.itemId
+            const item = getItem(itemId)
+            transportType = item?.transportType ?? 'belt'
+          }
+        }
+      }
+    }
 
     const edgeData: FlowEdgeData = {
-      itemId: '',
+      itemId,
       rate: 0,
-      transportType: 'belt' as TransportType,
+      transportType,
     }
 
     pendingConnection.value = {
       sourceId: connection.source,
-      sourcePort: srcHandle?.portIndex ?? 0,
+      sourcePort: srcPortIndex,
       targetId: connection.target,
-      targetPort: tgtHandle?.portIndex ?? 0,
+      targetPort: tgtPortIndex,
       ...edgeData,
     }
   })
