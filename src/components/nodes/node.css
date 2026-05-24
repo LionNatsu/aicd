@@ -14,10 +14,12 @@
   padding: 6px 10px;
   font-weight: 600;
   font-size: 11px;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: 6px 6px 0 0;
-  opacity: 0.8;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .node-body {
@@ -45,4 +47,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 90px;
+}
+
+.node-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
 }

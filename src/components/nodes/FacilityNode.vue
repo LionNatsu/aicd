@@ -2,11 +2,13 @@
 import { Handle, Position } from '@vue-flow/core'
 import type { NodeProps } from '@vue-flow/core'
 import type { FacilityNodeData } from '@/types'
-import { getFacility, getRecipe } from '@/data'
+import { getFacility, getRecipe, getFacilityIconUrl } from '@/data'
 import { resolvePorts } from '@/utils/port-resolver'
+import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 
 const props = defineProps<NodeProps<FacilityNodeData>>()
+const { t } = useI18n()
 
 const ports = computed(() => {
   const facility = getFacility(props.data?.facilityId ?? '')
@@ -22,19 +24,18 @@ const ports = computed(() => {
 
 <template>
   <div class="aicd-node aicd-facility">
-    <div class="node-header">Facility</div>
+    <div class="node-header">
+      <img
+        v-if="props.data?.facilityId"
+        :src="getFacilityIconUrl(props.data.facilityId)"
+        class="node-icon"
+      />
+      <span>{{ t(`facility.${props.data?.facilityId}`) }}</span>
+    </div>
     <div class="node-body">
       <div class="node-field">
-        <span class="label">ID</span>
-        <span class="value">{{ props.data?.facilityId || '—' }}</span>
-      </div>
-      <div class="node-field">
-        <span class="label">Recipe</span>
-        <span class="value">{{ props.data?.recipeId || '—' }}</span>
-      </div>
-      <div class="node-field">
         <span class="label">Count</span>
-        <span class="value">{{ props.data?.count ?? 1 }}</span>
+        <span class="value">x{{ props.data?.count ?? 1 }}</span>
       </div>
     </div>
     <!-- Dynamic input handles -->
