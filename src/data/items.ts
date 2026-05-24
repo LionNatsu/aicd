@@ -14,8 +14,8 @@ export const items: Item[] = [
   { id: 'item_copper_ore', tier: 1 },
 
   // --- Raw liquids ---
-  { id: 'item_liquid_water', tier: 1, isLiquid: true },
-  { id: 'item_liquid_acid', tier: 1, isLiquid: true },
+  { id: 'item_liquid_water', tier: 1, transportType: 'pipe' },
+  { id: 'item_liquid_acid', tier: 1, transportType: 'pipe' },
 
   // --- Raw plants ---
   { id: 'item_plant_moss_1', tier: 1 },
@@ -117,15 +117,15 @@ export const items: Item[] = [
   { id: 'item_equip_script_4_2', tier: 4 },
 
   // --- Processed liquids ---
-  { id: 'item_liquid_sewage', tier: 3, isLiquid: true },
-  { id: 'item_liquid_plant_grass_1', tier: 3, isLiquid: true },
-  { id: 'item_liquid_plant_grass_2', tier: 3, isLiquid: true },
-  { id: 'item_liquid_copper', tier: 3, isLiquid: true },
-  { id: 'item_liquid_copper_enr', tier: 3, isLiquid: true },
-  { id: 'item_liquid_xiranite', tier: 3, isLiquid: true },
-  { id: 'item_liquid_xiranite_enr', tier: 3, isLiquid: true },
-  { id: 'item_liquid_xiranite_poly', tier: 3, isLiquid: true },
-  { id: 'item_liquid_xiranite_lowpoly', tier: 3, isLiquid: true },
+  { id: 'item_liquid_sewage', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_plant_grass_1', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_plant_grass_2', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_copper', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_copper_enr', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_xiranite', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_xiranite_enr', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_xiranite_poly', tier: 3, transportType: 'pipe' },
+  { id: 'item_liquid_xiranite_lowpoly', tier: 3, transportType: 'pipe' },
 
   // --- Bottled food / medicine ---
   { id: 'item_bottled_food_1', tier: 3 },

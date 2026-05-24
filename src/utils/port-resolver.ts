@@ -6,7 +6,7 @@ import { getItem } from '@/data'
  *
  * Ports are derived from the facility's buffer layout and the recipe's
  * inputs/outputs. Each recipe item is assigned to a buffer port of the
- * matching transport type (belt for solids, pipe for liquids).
+ * matching transport type (belt, pipe, or future types).
  *
  * If a recipe has more items than available ports of the matching type,
  * the excess items are still included but marked with a warning — this
@@ -59,48 +59,39 @@ function assignPorts(
   pipeBuffers: Facility['buffersIn']['pipe'],
   direction: 'in' | 'out',
 ): Port[] {
-  const beltItems: string[] = []
-  const pipeItems: string[] = []
+  const groups: Record<string, string[]> = {}
 
   for (const itemId of itemIds) {
     const item = getItem(itemId)
-    if (item?.isLiquid) {
-      pipeItems.push(itemId)
-    } else {
-      beltItems.push(itemId)
-    }
+    const type = item?.transportType ?? 'belt'
+    if (!groups[type]) groups[type] = []
+    groups[type].push(itemId)
   }
 
   const ports: Port[] = []
 
-  // Assign belt items to belt buffer ports
-  let portIndex = 0
-  const totalBeltPorts = beltBuffers.reduce((sum, b) => sum + b.ports, 0)
+  // Assign items to their matching buffer type
+  // Currently: belt and pipe buffers. Future types (gas etc.) follow the same pattern.
+  const bufferGroups: Array<{ key: string; buffers: Facility['buffersIn']['belt'] }> = [
+    { key: 'belt', buffers: beltBuffers },
+    { key: 'pipe', buffers: pipeBuffers },
+  ]
 
-  for (let i = 0; i < beltItems.length; i++) {
-    ports.push({
-      index: portIndex,
-      direction,
-      itemId: beltItems[i],
-      transportType: 'belt' as TransportType,
-      connected: false,
-    })
-    portIndex = Math.min(portIndex + 1, totalBeltPorts - 1)
-  }
+  for (const { key, buffers } of bufferGroups) {
+    const items = groups[key] ?? []
+    const totalPorts = buffers.reduce((sum, b) => sum + b.ports, 0)
+    let portIndex = 0
 
-  // Assign pipe items to pipe buffer ports
-  portIndex = 0
-  const totalPipePorts = pipeBuffers.reduce((sum, b) => sum + b.ports, 0)
-
-  for (let i = 0; i < pipeItems.length; i++) {
-    ports.push({
-      index: portIndex,
-      direction,
-      itemId: pipeItems[i],
-      transportType: 'pipe' as TransportType,
-      connected: false,
-    })
-    portIndex = Math.min(portIndex + 1, Math.max(totalPipePorts - 1, 0))
+    for (const itemId of items) {
+      ports.push({
+        index: portIndex,
+        direction,
+        itemId,
+        transportType: key as TransportType,
+        connected: false,
+      })
+      portIndex = Math.min(portIndex + 1, Math.max(totalPorts - 1, 0))
+    }
   }
 
   return ports

@@ -26,7 +26,8 @@ export type TransportType = 'belt' | 'pipe'
 export interface Item {
   id: string
   tier: number
-  isLiquid?: boolean
+  /** How this item is transported. Defaults to 'belt' if omitted. */
+  transportType?: TransportType
   /** false = only an intermediate, not a valid user production target. */
   asTarget?: boolean
 }
