@@ -3,8 +3,10 @@ import { computed } from 'vue'
 import { BaseEdge, getBezierPath, EdgeLabelRenderer } from '@vue-flow/core'
 import type { EdgeProps } from '@vue-flow/core'
 import type { FlowEdgeData } from '@/types'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps<EdgeProps<FlowEdgeData>>()
+const { t } = useI18n()
 
 const path = computed(() => {
   const [edgePath] = getBezierPath({
@@ -65,7 +67,11 @@ const markerId = computed(() => `arrow-${props.id}`)
       }"
       class="flow-edge-label"
     >
-      {{ props.data.itemId }}
+      {{
+        t(`item.${props.data.itemId}`) !== `item.${props.data.itemId}`
+          ? t(`item.${props.data.itemId}`)
+          : props.data.itemId
+      }}
       <span v-if="props.data.rate > 0" class="rate">{{ props.data.rate.toFixed(1) }}/s</span>
     </div>
   </EdgeLabelRenderer>
