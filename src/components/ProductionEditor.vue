@@ -47,10 +47,15 @@ const selectedNode = computed(() => {
  * Matches patterns like "item_xxx" and replaces with the translated name.
  */
 function translateDiagMessage(msg: string): string {
-  return msg.replace(/\b(item_\w+)\b/g, (match) => {
-    const name = t(`item.${match}`)
-    return name === `item.${match}` ? match : name
-  })
+  return msg
+    .replace(/\b(item_\w+)\b/g, (match) => {
+      const name = t(`item.${match}`)
+      return name === `item.${match}` ? match : name
+    })
+    .replace(/\b(facility_\w+)\b/g, (match) => {
+      const name = t(`facility.${match}`)
+      return name === `facility.${match}` ? match : name
+    })
 }
 
 // Register custom node/edge types
