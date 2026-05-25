@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, ref, computed } from 'vue'
+import { markRaw, ref, computed, nextTick } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import type { NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
@@ -83,6 +83,7 @@ function nextYForColumn(x: number): number {
 
 function handleAddSupply(itemId: string, position: { x: number; y: number }) {
   addSupply({ itemId, position: { x: position.x, y: nextYForColumn(position.x) } })
+  autoFitView()
 }
 
 function handleAddFacility(
@@ -125,6 +126,7 @@ function handleAddFacility(
       }
     }
   }
+  autoFitView()
 }
 
 function handleAddSink(
@@ -133,6 +135,7 @@ function handleAddSink(
   purpose: 'demand' | 'disposal' = 'demand',
 ) {
   addSink({ itemId, rate: 5, purpose, position: { x: position.x, y: nextYForColumn(position.x) } })
+  autoFitView()
 }
 
 // ---- Diagnostics ----
@@ -171,7 +174,11 @@ function deleteContextTarget() {
 }
 
 // Keyboard delete (Backspace/Delete) for selected elements
-const { getSelectedNodes, getSelectedEdges } = useVueFlow()
+const { getSelectedNodes, getSelectedEdges, fitView } = useVueFlow()
+
+function autoFitView() {
+  nextTick(() => fitView({ padding: 0.2, duration: 300 }))
+}
 
 function onKeyDown(event: KeyboardEvent) {
   if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -210,6 +217,11 @@ function onKeyDown(event: KeyboardEvent) {
           @edge-context-menu="onEdgeContextMenu"
           @pane-click="onPaneClick"
         />
+
+        <!-- Canvas controls -->
+        <div class="canvas-controls">
+          <button class="ctrl-btn" title="Fit View" @click="autoFitView()">⊞</button>
+        </div>
 
         <!-- Context menu -->
         <div
@@ -363,5 +375,33 @@ function onKeyDown(event: KeyboardEvent) {
 
 .context-menu button:hover {
   background: #2a1a1a;
+}
+
+.canvas-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+}
+
+.ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctrl-btn:hover {
+  background: #2a2a2a;
+  color: #ededed;
 }
 </style>
