@@ -268,15 +268,15 @@ export function useProductionLine(initialId?: string) {
       }
     }
 
-    // Check output rates
+    // Check output transport capacity vs production rate
     for (const [itemId, expected] of expectedOut) {
       const actual = actualOut.get(itemId) ?? 0
       if (actual > expected) {
         diagnostics.push({
           nodeId,
-          level: 'warning',
+          level: 'info',
           kind: 'overproduction',
-          message: `Output ${itemId}: can produce ${expected.toFixed(2)}/s, edges carry ${actual.toFixed(2)}/s`,
+          message: `Output ${itemId}: produces ${expected.toFixed(2)}/s, pipe capacity ${actual.toFixed(2)}/s`,
           relatedEdges: outEdges.filter((e) => e.itemId === itemId).map((e) => e.id),
         })
       }
