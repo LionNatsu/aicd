@@ -69,13 +69,20 @@ const edgeTypes = {
   flow: markRaw(FlowEdgeVue),
 }
 
-// ---- Node placement (auto-offset from last position) ----
+// ---- Node placement (per-column auto-offset) ----
 
-let nextY = 200
+function nextYForColumn(x: number): number {
+  let maxY = 100
+  for (const node of line.nodes.values()) {
+    if (Math.abs(node.position.x - x) < 300) {
+      maxY = Math.max(maxY, node.position.y + 120)
+    }
+  }
+  return maxY
+}
 
 function handleAddSupply(itemId: string, position: { x: number; y: number }) {
-  addSupply({ itemId, position: { x: position.x, y: nextY } })
-  nextY += 120
+  addSupply({ itemId, position: { x: position.x, y: nextYForColumn(position.x) } })
 }
 
 function handleAddFacility(
@@ -85,8 +92,12 @@ function handleAddFacility(
 ) {
   const facility = getFacility(facilityId)
   const recipe = getRecipe(recipeId)
-  addFacility({ facilityId, recipeId, count: 1, position: { x: position.x, y: nextY } })
-  nextY += 120
+  addFacility({
+    facilityId,
+    recipeId,
+    count: 1,
+    position: { x: position.x, y: nextYForColumn(position.x) },
+  })
 
   // Auto-add disposal sinks for byproduct outputs.
   // A byproduct is any recipe output that is NOT the primary demand target
@@ -109,9 +120,8 @@ function handleAddFacility(
           itemId: port.itemId,
           rate: 0,
           purpose: 'disposal',
-          position: { x: 650, y: nextY },
+          position: { x: 650, y: nextYForColumn(650) },
         })
-        nextY += 120
       }
     }
   }
@@ -122,8 +132,7 @@ function handleAddSink(
   position: { x: number; y: number },
   purpose: 'demand' | 'disposal' = 'demand',
 ) {
-  addSink({ itemId, rate: 5, purpose, position: { x: position.x, y: nextY } })
-  nextY += 120
+  addSink({ itemId, rate: 5, purpose, position: { x: position.x, y: nextYForColumn(position.x) } })
 }
 
 // ---- Diagnostics ----
