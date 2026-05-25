@@ -15,8 +15,9 @@ import './nodes/node.css'
 import { useProductionLine } from '@/composables/useProductionLine'
 import { useGraphAdapter } from '@/composables/useGraphAdapter'
 import { useI18n } from 'vue-i18n'
-import { getRecipe, getFacility } from '@/data'
+import { getRecipe, getFacility, getItem } from '@/data'
 import { resolvePorts } from '@/utils/port-resolver'
+import type { TransportType } from '@/types'
 
 const { line, addSupply, addFacility, addSink, addEdge, removeNode, removeEdge } =
   useProductionLine()
@@ -69,6 +70,152 @@ const edgeTypes = {
   flow: markRaw(FlowEdgeVue),
 }
 
+// ---- Auto-connect: wire edges to matching existing nodes ----
+
+function edgeExists(
+  sourceId: string,
+  sourceHandle: string,
+  targetId: string,
+  targetHandle: string,
+): boolean {
+  for (const edge of line.edges.values()) {
+    if (
+      edge.sourceId === sourceId &&
+      edge.sourceHandle === sourceHandle &&
+      edge.targetId === targetId &&
+      edge.targetHandle === targetHandle
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function autoConnectSupply(supplyNodeId: string) {
+  const supplyNode = line.nodes.get(supplyNodeId)
+  if (!supplyNode || supplyNode.type !== 'supply') return
+  const itemId = supplyNode.itemId
+  const item = getItem(itemId)
+  const transportType: TransportType = item?.transportType ?? 'belt'
+
+  // Connect to facility input ports that need this item
+  for (const [nodeId, node] of line.nodes) {
+    if (node.type !== 'facility') continue
+    const facility = getFacility(node.facilityId)
+    const recipe = getRecipe(node.recipeId)
+    if (!facility || !recipe) continue
+    const ports = resolvePorts(facility, recipe)
+    for (const port of ports.inputs) {
+      if (port.itemId === itemId) {
+        const sourceHandle = 'out-0-0'
+        const targetHandle = port.handleId
+        if (!edgeExists(supplyNodeId, sourceHandle, nodeId, targetHandle)) {
+          addEdge({
+            sourceId: supplyNodeId,
+            sourceHandle,
+            targetId: nodeId,
+            targetHandle,
+            itemId,
+            parallelCount: 1,
+            transportType,
+          })
+        }
+      }
+    }
+  }
+}
+
+function autoConnectFacility(facilityNodeId: string) {
+  const facilityNode = line.nodes.get(facilityNodeId)
+  if (!facilityNode || facilityNode.type !== 'facility') return
+  const facility = getFacility(facilityNode.facilityId)
+  const recipe = getRecipe(facilityNode.recipeId)
+  if (!facility || !recipe) return
+
+  const ports = resolvePorts(facility, recipe)
+
+  // Connect facility output ports to matching sink nodes
+  for (const port of ports.outputs) {
+    if (!port.itemId) continue
+    const item = getItem(port.itemId)
+    const transportType: TransportType = item?.transportType ?? 'belt'
+
+    for (const [nodeId, node] of line.nodes) {
+      if (node.type !== 'sink' || node.itemId !== port.itemId) continue
+      const sourceHandle = port.handleId
+      const targetHandle = 'in-0-0'
+      if (!edgeExists(facilityNodeId, sourceHandle, nodeId, targetHandle)) {
+        addEdge({
+          sourceId: facilityNodeId,
+          sourceHandle,
+          targetId: nodeId,
+          targetHandle,
+          itemId: port.itemId,
+          parallelCount: 1,
+          transportType,
+        })
+      }
+    }
+  }
+
+  // Connect existing supply nodes to facility input ports
+  for (const port of ports.inputs) {
+    if (!port.itemId) continue
+    for (const [nodeId, node] of line.nodes) {
+      if (node.type !== 'supply' || node.itemId !== port.itemId) continue
+      const item = getItem(port.itemId)
+      const transportType: TransportType = item?.transportType ?? 'belt'
+      const sourceHandle = 'out-0-0'
+      const targetHandle = port.handleId
+      if (!edgeExists(nodeId, sourceHandle, facilityNodeId, targetHandle)) {
+        addEdge({
+          sourceId: nodeId,
+          sourceHandle,
+          targetId: facilityNodeId,
+          targetHandle,
+          itemId: port.itemId,
+          parallelCount: 1,
+          transportType,
+        })
+      }
+    }
+  }
+}
+
+function autoConnectSink(sinkNodeId: string) {
+  const sinkNode = line.nodes.get(sinkNodeId)
+  if (!sinkNode || sinkNode.type !== 'sink') return
+  const itemId = sinkNode.itemId
+  const item = getItem(itemId)
+  const transportType: TransportType = item?.transportType ?? 'belt'
+
+  // Connect from facility output ports that produce this item
+  for (const [nodeId, node] of line.nodes) {
+    if (node.type !== 'facility') continue
+    const facility = getFacility(node.facilityId)
+    const recipe = getRecipe(node.recipeId)
+    if (!facility || !recipe) continue
+    const ports = resolvePorts(facility, recipe)
+    for (const port of ports.outputs) {
+      if (port.itemId === itemId) {
+        const sourceHandle = port.handleId
+        const targetHandle = 'in-0-0'
+        if (!edgeExists(nodeId, sourceHandle, sinkNodeId, targetHandle)) {
+          addEdge({
+            sourceId: nodeId,
+            sourceHandle,
+            targetId: sinkNodeId,
+            targetHandle,
+            itemId,
+            parallelCount: 1,
+            transportType,
+          })
+        }
+      }
+    }
+  }
+}
+
 // ---- Node placement (per-column auto-offset) ----
 
 function nextYForColumn(x: number): number {
@@ -82,7 +229,8 @@ function nextYForColumn(x: number): number {
 }
 
 function handleAddSupply(itemId: string, position: { x: number; y: number }) {
-  addSupply({ itemId, position: { x: position.x, y: nextYForColumn(position.x) } })
+  const id = addSupply({ itemId, position: { x: position.x, y: nextYForColumn(position.x) } })
+  autoConnectSupply(id)
   autoFitView()
 }
 
@@ -93,7 +241,7 @@ function handleAddFacility(
 ) {
   const facility = getFacility(facilityId)
   const recipe = getRecipe(recipeId)
-  addFacility({
+  const facilityNodeId = addFacility({
     facilityId,
     recipeId,
     count: 1,
@@ -126,6 +274,7 @@ function handleAddFacility(
       }
     }
   }
+  autoConnectFacility(facilityNodeId)
   autoFitView()
 }
 
@@ -134,7 +283,13 @@ function handleAddSink(
   position: { x: number; y: number },
   purpose: 'demand' | 'disposal' = 'demand',
 ) {
-  addSink({ itemId, rate: 5, purpose, position: { x: position.x, y: nextYForColumn(position.x) } })
+  const id = addSink({
+    itemId,
+    rate: 5,
+    purpose,
+    position: { x: position.x, y: nextYForColumn(position.x) },
+  })
+  autoConnectSink(id)
   autoFitView()
 }
 
